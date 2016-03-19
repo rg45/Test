@@ -1,0 +1,9 @@
+*.obj
+*.lib
+*.ncb
+*.suo
+*.user
+*.idb
+*.pdb
+Debug/
+Release/
