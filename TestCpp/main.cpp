@@ -4,35 +4,32 @@
 #include <typeinfo>
 #include <boost/utility/enable_if.hpp>
 #include <boost/type_traits/integral_constant.hpp>
-#include <boost/type_traits/is_base_of.hpp>
 
-template<typename T, void(T::*)(int) = &T::foo>
-struct FooIndicator { typedef void type; };
+struct HavingFoo { int foo; };
+template <typename T> struct FooCollisionEnforcer : T, HavingFoo { };
 
-template <typename, typename=void>
-struct IsFooEnabledRecursive;
+template <typename T, int HavingFoo::* = &FooCollisionEnforcer<T>::foo> struct NoFooCollision { typedef void type; };
 
-template<typename T, typename=void>
-struct IsFooEnabled : IsFooEnabledRecursive<T> { };
+template <typename T, typename=void> struct IfAnyFooEnabled { typedef void type; };
+template <typename T> struct IfAnyFooEnabled<T, typename NoFooCollision<T>::type> { };
 
-template<typename T>
-struct IsFooEnabled<T, typename FooIndicator<T>::type> : boost::true_type { };
+template <typename T, typename=void> struct IsFooEnabled : boost::false_type { };
+template <typename T> struct IsFooEnabled<T, typename IfAnyFooEnabled<T>::type>
+{
+   typedef char(&yes)[1];
+   typedef char(&no)[2];
+   template <typename C> static yes checkFooSignature(void(C::*)(int) const);
+   static no checkFooSignature(...);
 
-template<typename, typename>
-struct IsFooEnabledRecursive : boost::false_type { };
-
-template<template <typename> class Derived, typename Base>
-struct IsFooEnabledRecursive<Derived<Base>
-   ,  typename boost::enable_if<boost::is_base_of<Base, Derived<Base> > >::type>
-   :  IsFooEnabled<Base> { };
-
+   static const bool value = sizeof(checkFooSignature(&T::foo)) == sizeof(yes);
+};
 template <typename T> struct IfFooEnabled : boost::enable_if<IsFooEnabled<T> > { };
 template <typename T> struct IfFooDisabled : boost::disable_if<IsFooEnabled<T> > { };
 
 class TestBinding
 {
 public:
-   void foo(int value) { std::cout << "foo has been called with " << value << std::endl; }
+   void foo(int value) const { std::cout << "foo has been called with " << value << std::endl; }
 };
 
 class TestBindingNoFoo
@@ -45,10 +42,13 @@ class Accessor : public T
 {
 };
 
+typedef void FooSignature(int);
+
 template<class T>
 class TestFoo : public T
 {
 private:
+
    template <typename U>
    typename IfFooEnabled<U>::type doTest()
    {
