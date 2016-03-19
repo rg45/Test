@@ -8,7 +8,8 @@
 struct HavingFoo { int foo; };
 template <typename T> struct FooCollisionEnforcer : T, HavingFoo { };
 
-template <typename T, int HavingFoo::* = &FooCollisionEnforcer<T>::foo> struct NoFooCollision { typedef void type; };
+template <typename T, int HavingFoo::* = &FooCollisionEnforcer<T>::foo>
+struct NoFooCollision { typedef void type; };
 
 template <typename T, typename=void> struct IfAnyFooEnabled { typedef void type; };
 template <typename T> struct IfAnyFooEnabled<T, typename NoFooCollision<T>::type> { };
@@ -18,7 +19,7 @@ template <typename T> struct IsFooEnabled<T, typename IfAnyFooEnabled<T>::type>
 {
    typedef char(&yes)[1];
    typedef char(&no)[2];
-   template <typename C> static yes checkFooSignature(void(C::*)(int) const);
+   template <typename C> static yes checkFooSignature(void(C::*)(int));
    static no checkFooSignature(...);
 
    static const bool value = sizeof(checkFooSignature(&T::foo)) == sizeof(yes);
@@ -29,7 +30,7 @@ template <typename T> struct IfFooDisabled : boost::disable_if<IsFooEnabled<T> >
 class TestBinding
 {
 public:
-   void foo(int value) const { std::cout << "foo has been called with " << value << std::endl; }
+   void foo(int value) { std::cout << "foo has been called with " << value << std::endl; }
 };
 
 class TestBindingNoFoo
