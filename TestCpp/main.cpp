@@ -5,6 +5,7 @@
 #include <boost/utility/enable_if.hpp>
 #include <boost/type_traits/integral_constant.hpp>
 
+/*
 struct HavingFoo { int foo; };
 template <typename T> struct FooCollisionEnforcer : T, HavingFoo { };
 
@@ -24,8 +25,21 @@ template <typename T> struct IsFooEnabled<T, typename IfAnyFooEnabled<T>::type>
 
    static const bool value = sizeof(checkFooSignature(&T::foo)) == sizeof(yes);
 };
-template <typename T> struct IfFooEnabled : boost::enable_if<IsFooEnabled<T> > { };
-template <typename T> struct IfFooDisabled : boost::disable_if<IsFooEnabled<T> > { };
+*/
+typedef char(&yes)[1];
+typedef char(&no)[2];
+
+template <typename U> yes checkSignature(void(U::*)(int));
+no checkSignature(...);
+
+template <typename U, void(U::*)(int) = &U::foo> struct Indicator { typedef void type; };
+
+template <typename U, typename=void> struct IsEnabled__ : boost::false_type { };
+template <typename U> struct IsEnabled__<U, typename Indicator<U>::type> : boost::true_type { };
+
+template <typename T> struct IfFooEnabled : boost::enable_if<IsEnabled__<T> > { };
+template <typename T> struct IfFooDisabled : boost::disable_if<IsEnabled__<T> > { };
+
 
 class TestBinding
 {
@@ -81,5 +95,8 @@ int main(int argc, char* argv[])
 
    TestFoo1 obj1;
    TestFoo2 obj2;
+
+   std::cout << "---" << std::endl;
+   std::cout << sizeof(Indicator<TestFoo1>::type*) << std::endl;
 }
 

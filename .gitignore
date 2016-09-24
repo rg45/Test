@@ -7,3 +7,6 @@
 *.pdb
 Debug/
 Release/
+*.ipch
+*.VC.db
+*.VC.opendb
