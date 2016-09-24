@@ -23,7 +23,7 @@ template <typename T> using Decay = typename std::decay<T>::type;
 template <bool condition, typename type = void>
 using EnableIf = typename std::enable_if<condition, type>::type;
 
-template <typename T> T&& instance();
+template <typename T> T instance();
 
 template <typename, typename = void> struct RangeIterator_;
 
@@ -37,13 +37,13 @@ template <typename Range>
 using RangeIterator = typename RangeIterator_<Range>::Iterator;
 
 template <typename Iterator>
-using IteratorReference = decltype(*instance<Iterator>());
+using IteratorReference = decltype(*instance<Iterator&&>());
 
 template <typename Range>
 using RangeReference = IteratorReference<RangeIterator<Range>>;
 
 template <typename F, typename... Args>
-using FunctionResult = decltype(instance<F>()(instance<Args>()...));
+using FunctionResult = decltype(instance<F&&>()(instance<Args&&>()...));
 
 template <typename F, typename... Args>
 using FunctionSignature = FunctionResult<F, Args...>(Args...);
