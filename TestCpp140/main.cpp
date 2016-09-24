@@ -1,8 +1,14 @@
 ﻿#include "stdafx.h"
 
+namespace cqg
+{
+namespace RS
+{
+void TestElementwiseOperations();
+} // namespace RS
+} // namespace cqg
+
 int main()
 {
-   void TestElementwiseOperations();
-
-   TestElementwiseOperations();
+   cqg::RS::TestElementwiseOperations();
 }

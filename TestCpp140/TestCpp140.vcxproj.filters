@@ -2,11 +2,23 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClInclude Include="stdafx.h" />
-    <ClInclude Include="ElementwiseOperations.h" />
+    <ClInclude Include="cqg\RS\ElementwiseOperations.h">
+      <Filter>cqg\RS</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="TestElementwiseOperations.cpp" />
+    <ClCompile Include="cqg\RS\TestElementwiseOperations.cpp">
+      <Filter>cqg\RS</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="cqg">
+      <UniqueIdentifier>{8bcbad1a-d8b5-4aac-b75e-d9a30fc2ed96}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="cqg\RS">
+      <UniqueIdentifier>{80bc1fb6-54dd-4b48-b6b6-1f8375a3c376}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
 </Project>

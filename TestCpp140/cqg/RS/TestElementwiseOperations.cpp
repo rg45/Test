@@ -5,6 +5,10 @@
 #include <iostream>
 #include <string>
 
+namespace cqg
+{
+namespace RS
+{
 namespace ElementwiseOperations
 {
 namespace detail
@@ -62,3 +66,5 @@ void TestElementwiseOperations()
 {
    ElementwiseOperations::test();
 }
+} // namespace RS
+} // namespace cqg

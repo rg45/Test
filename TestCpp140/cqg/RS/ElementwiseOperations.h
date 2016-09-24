@@ -1,6 +1,4 @@
-﻿#include "stdafx.h"
-
-#include <boost/iterator/iterator_facade.hpp>
+﻿#include <boost/iterator/iterator_facade.hpp>
 #include <boost/iterator/iterator_traits.hpp>
 #include <boost/range/begin.hpp>
 #include <boost/range/has_range_iterator.hpp>
@@ -12,6 +10,10 @@
 #include <tuple>
 #include <typeinfo>
 
+namespace cqg
+{
+namespace RS
+{
 namespace ElementwiseOperations
 {
 namespace detail
@@ -55,3 +57,5 @@ template <typename T> constexpr bool IsRange = IsRange_<T>::value;
 
 } // namespace detail
 } // namespace ElementwiseOperations
+} // namespace RS
+} // namespace cqg
