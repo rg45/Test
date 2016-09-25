@@ -145,6 +145,15 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="cqg\RS\ElementwiseOperations.h" />
+    <ClInclude Include="cqg\RS\ElementwiseOperations\detail.h" />
+    <ClInclude Include="cqg\RS\ElementwiseOperations\detail\Decay.h" />
+    <ClInclude Include="cqg\RS\ElementwiseOperations\detail\EnableIf.h" />
+    <ClInclude Include="cqg\RS\ElementwiseOperations\detail\FunctionResult.h" />
+    <ClInclude Include="cqg\RS\ElementwiseOperations\detail\FunctionSignature.h" />
+    <ClInclude Include="cqg\RS\ElementwiseOperations\detail\instance.h" />
+    <ClInclude Include="cqg\RS\ElementwiseOperations\detail\IsRange.h" />
+    <ClInclude Include="cqg\RS\ElementwiseOperations\detail\IteratorReference.h" />
+    <ClInclude Include="cqg\RS\ElementwiseOperations\detail\RangeIterator.h" />
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <ItemGroup>

@@ -5,6 +5,19 @@
     <ClInclude Include="cqg\RS\ElementwiseOperations.h">
       <Filter>cqg\RS</Filter>
     </ClInclude>
+    <ClInclude Include="cqg\RS\ElementwiseOperations\detail.h">
+      <Filter>cqg\RS\ElementwiseOperations</Filter>
+    </ClInclude>
+    <ClInclude Include="cqg\RS\ElementwiseOperations\detail\Decay.h">
+      <Filter>cqg\RS\ElementwiseOperations\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="cqg\RS\ElementwiseOperations\detail\EnableIf.h" />
+    <ClInclude Include="cqg\RS\ElementwiseOperations\detail\instance.h" />
+    <ClInclude Include="cqg\RS\ElementwiseOperations\detail\RangeIterator.h" />
+    <ClInclude Include="cqg\RS\ElementwiseOperations\detail\IteratorReference.h" />
+    <ClInclude Include="cqg\RS\ElementwiseOperations\detail\FunctionResult.h" />
+    <ClInclude Include="cqg\RS\ElementwiseOperations\detail\FunctionSignature.h" />
+    <ClInclude Include="cqg\RS\ElementwiseOperations\detail\IsRange.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -19,6 +32,12 @@
     </Filter>
     <Filter Include="cqg\RS">
       <UniqueIdentifier>{80bc1fb6-54dd-4b48-b6b6-1f8375a3c376}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="cqg\RS\ElementwiseOperations">
+      <UniqueIdentifier>{214aef4f-fe28-4124-a239-a2507cf84bb0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="cqg\RS\ElementwiseOperations\detail">
+      <UniqueIdentifier>{dd594dc7-3ccd-4c76-b7b5-c1baad0bb73b}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
