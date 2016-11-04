@@ -1,5 +1,12 @@
 /3rdParty/
 Debug/
 Release/
+*.obj
+*.lib
+*.exe
+*.dll
+*.suo
+*.pdb
+*.ncb
 *.VC.db
 *.VC.opendb

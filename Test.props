@@ -1,0 +1,37 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Label="PropertySheets" />
+  <PropertyGroup Label="UserMacros">
+    <ThirdPartyDir>$(SolutionDir)..\3rdParty\</ThirdPartyDir>
+    <StlportDir>$(ThirdPartyDir)STLport-5.2.1-patched\</StlportDir>
+    <BoostDir>$(ThirdPartyDir)boost_1_58_0\</BoostDir>
+    <TestAdditionalIncludeDir>$(BoostDir);$(StlportDir)\stlport\</TestAdditionalIncludeDir>
+    <TestAdditionalLibDir>$(BoostDir)stage\lib\;$(StlportDir)\lib\</TestAdditionalLibDir>
+    <TestAdditionalExeDir>$(BoostDir)stage\lib\;$(StlportDir)\bin\</TestAdditionalExeDir>
+  </PropertyGroup>
+  <PropertyGroup>
+    <IncludePath>$(TestAdditionalIncludeDir);$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <LibraryPath>$(TestAdditionalLibDir);$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <ItemDefinitionGroup />
+  <ItemGroup>
+    <BuildMacro Include="ThirdPartyDir">
+      <Value>$(ThirdPartyDir)</Value>
+    </BuildMacro>
+    <BuildMacro Include="StlportDir">
+      <Value>$(StlportDir)</Value>
+    </BuildMacro>
+    <BuildMacro Include="BoostDir">
+      <Value>$(BoostDir)</Value>
+    </BuildMacro>
+    <BuildMacro Include="TestAdditionalIncludeDir">
+      <Value>$(TestAdditionalIncludeDir)</Value>
+    </BuildMacro>
+    <BuildMacro Include="TestAdditionalLibDir">
+      <Value>$(TestAdditionalLibDir)</Value>
+    </BuildMacro>
+    <BuildMacro Include="TestAdditionalExeDir">
+      <Value>$(TestAdditionalExeDir)</Value>
+    </BuildMacro>
+  </ItemGroup>
+</Project>
