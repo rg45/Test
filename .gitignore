@@ -9,5 +9,6 @@ Release/
 *.pdb
 *.ncb
 *.tmp
+*.ipch
 *.VC.db
 *.VC.opendb

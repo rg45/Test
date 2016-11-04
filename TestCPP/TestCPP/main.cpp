@@ -63,6 +63,23 @@ decltype(auto) select(List&&...list) { return SelectByIndex<i, List...>()(std::f
 template <typename T, typename...List>
 decltype(auto) select(List&&...list) { return SelectByType<T, List...>()(std::forward<List>(list)...); }
 
+template<typename F, typename = decltype(&F::operator())> struct SmartCall;
+
+template<typename F, typename R, typename...Params>
+struct SmartCall<F, R(F::*)(Params...)const>
+{
+   template<typename...Args>
+   R operator()(F&& f, Args&&...args) const
+   {
+      return f(select<Params>(std::forward<Args>(args)...)...);
+   }
+};
+
+template <typename F, typename...Args>
+decltype(auto) smartcall(F&& f, Args&&...args)
+{
+   return SmartCall<F>()(std::forward<F>(f), std::forward<Args>(args)...);
+}
 
 int main()
 {
@@ -90,5 +107,8 @@ int main()
    PRINT(select<const A&>(a1, "Hello, World!!!", A()).value);
    PRINT(select<const A&>(a1, "Hello, World!!!", A()).value = 22.4);
    PRINT(select<const A&>(a1, "Hello, World!!!", A()).value);
+
+   smartcall([](const std::string& name, const A& a){PRINT(name); PRINT(a.value);}, a1, "Hello, World!!!", A(-1.0));
+
 
 }
