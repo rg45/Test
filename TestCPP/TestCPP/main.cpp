@@ -24,7 +24,7 @@ void print(const std::string& name, T&& value)
 template<size_t i, typename Head, typename...Tail>
 struct SelectByIndex
 {
-   decltype(auto) operator()(Head&& head, Tail&&...tail)
+   decltype(auto) operator()(Head&&, Tail&&...tail)
    {
       return SelectByIndex<i - 1, Tail...>()(std::forward<Tail>(tail)...);
    }
@@ -45,7 +45,7 @@ using SelectByType = SelectByTypeBase<std::is_convertible<Head, T>::value, T, He
 template<bool, typename T, typename Head, typename...Tail>
 struct SelectByTypeBase
 {
-   decltype(auto) operator()(Head&& head, Tail&&...tail)
+   decltype(auto) operator()(Head&&, Tail&&...tail)
    {
       return SelectByType<T, Tail...>()(std::forward<Tail>(tail)...);
    }
