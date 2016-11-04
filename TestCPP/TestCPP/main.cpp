@@ -3,12 +3,14 @@
 #include <iostream>
 #include <string>
 #include <tuple>
-#include <boost/enable_shared_from_this.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/make_shared.hpp>
+#include <functional>
+
+#include <boost/noncopyable.hpp>
+
+#define PRINT(ex) (std::cout << #ex" = " << (ex) << std::endl)
 
 template <typename F, typename...Args>
-decltype(auto) call(F&& f, Args&&...args)
+decltype(auto) invoke(F&& f, Args&&...args)
 {
    return std::forward<F>(f)(std::forward<Args>(args)...);
 }
@@ -19,38 +21,44 @@ void print(const std::string& name, T&& value)
    std::cout << name << " = " << std::forward<T>(value) << std::endl;
 }
 
-class A { };
-class B : public A, public boost::enable_shared_from_this<B>
+template<size_t i, typename First, typename...Rest>
+struct SelectorByIndex
 {
-public:
-   B() { std::cout << __FUNCTION__ << std::endl; }
-   ~B() { std::cout << __FUNCTION__ << std::endl; }
-
-   boost::shared_ptr<const B> foo() const { return shared_from_this(); }
+   decltype(auto) operator()(First&& first, Rest&&...rest)
+   {
+      return SelectorByIndex<i - 1, Rest...>()(std::forward<Rest>(rest)...);
+   }
 };
 
-class C : public B, public boost::enable_shared_from_this<C>
+template<typename First, typename...Rest>
+struct SelectorByIndex<0, First, Rest...>
 {
-public:
-   C() { std::cout << __FUNCTION__ << std::endl; }
-   ~C() { std::cout << __FUNCTION__ << std::endl; }
+   decltype(auto) operator()(First&& first, Rest&&...) { return std::forward<First>(first); }
 };
 
-template<typename T>
-void bar(T&& t)
-{
-   *t;
-}
+template <size_t i, typename...T>
+decltype(auto) select(T&&...t) { return SelectorByIndex<i, T...>()(std::forward<T>(t)...); }
+
 
 int main()
 {
-//    auto tuple = std::make_tuple("Pi", 3.14);
-//    call(print<decltype(std::get<double>(tuple))>, std::get<const char*>(tuple), std::get<double>(tuple));
+   auto tuple = std::make_tuple("Pi", 3.14);
+   invoke(print<decltype(std::get<double>(tuple))>, std::get<const char*>(tuple), std::get<double>(tuple));
 
-   boost::shared_ptr<const C> c = boost::make_shared<C>();
-   boost::shared_ptr<const B> b = c->foo();
+   PRINT(sizeof(std::declval<int>()));
 
-   bar(b);
-   bar(c);
+   double pi = asin(2.0);
+
+   PRINT(select<1>(1, pi, "Hello!"));
+   select<1>(1, pi, "Hello!") = 3.14;
+   PRINT(select<1>(1, pi, "Hello!"));
+
+   struct A : boost::noncopyable
+   {
+      explicit A(double value = 0) : value(value) { }
+      double value;
+   };
+
+   PRINT(select<0>(A(2.71)).value);
 
 }
