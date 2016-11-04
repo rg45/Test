@@ -22,22 +22,46 @@ void print(const std::string& name, T&& value)
 }
 
 template<size_t i, typename First, typename...Rest>
-struct SelectorByIndex
+struct SelectByIndex
 {
    decltype(auto) operator()(First&& first, Rest&&...rest)
    {
-      return SelectorByIndex<i - 1, Rest...>()(std::forward<Rest>(rest)...);
+      return SelectByIndex<i - 1, Rest...>()(std::forward<Rest>(rest)...);
    }
 };
 
 template<typename First, typename...Rest>
-struct SelectorByIndex<0, First, Rest...>
+struct SelectByIndex<0, First, Rest...>
 {
    decltype(auto) operator()(First&& first, Rest&&...) { return std::forward<First>(first); }
 };
 
-template <size_t i, typename...T>
-decltype(auto) select(T&&...t) { return SelectorByIndex<i, T...>()(std::forward<T>(t)...); }
+template<bool, typename T, typename First, typename...Rest>
+struct SelectByTypeBase;
+
+template<typename T, typename First, typename...Rest>
+using SelectByType = SelectByTypeBase<std::is_convertible<First, T>::value, T, First, Rest...>;
+
+template<bool, typename T, typename First, typename...Rest>
+struct SelectByTypeBase
+{
+   decltype(auto) operator()(First&& first, Rest&&...rest)
+   {
+      return SelectByType<T, Rest...>()(std::forward<Rest>(rest)...);
+   }
+};
+
+template<typename T, typename First, typename...Rest>
+struct SelectByTypeBase<true, T, First, Rest...>
+{
+   decltype(auto) operator()(First&& first, Rest&&...) { return std::forward<First>(first); }
+};
+
+template <size_t i, typename...TT>
+decltype(auto) select(TT&&...tt) { return SelectByIndex<i, TT...>()(std::forward<TT>(tt)...); }
+
+template <typename T, typename...TT>
+decltype(auto) select(TT&&...tt) { return SelectByType<T, TT...>()(std::forward<TT>(tt)...); }
 
 
 int main()
@@ -60,5 +84,11 @@ int main()
    };
 
    PRINT(select<0>(A(2.71)).value);
+
+   A a1(3.14);
+   PRINT(select<std::string>(a1, "Hello, World!!!", A()));
+   PRINT(select<const A&>(a1, "Hello, World!!!", A()).value);
+   PRINT(select<const A&>(a1, "Hello, World!!!", A()).value = 22.4);
+   PRINT(select<const A&>(a1, "Hello, World!!!", A()).value);
 
 }
