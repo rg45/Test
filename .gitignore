@@ -8,5 +8,6 @@ Release/
 *.suo
 *.pdb
 *.ncb
+*.tmp
 *.VC.db
 *.VC.opendb
