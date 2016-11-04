@@ -21,47 +21,47 @@ void print(const std::string& name, T&& value)
    std::cout << name << " = " << std::forward<T>(value) << std::endl;
 }
 
-template<size_t i, typename First, typename...Rest>
+template<size_t i, typename Head, typename...Tail>
 struct SelectByIndex
 {
-   decltype(auto) operator()(First&& first, Rest&&...rest)
+   decltype(auto) operator()(Head&& head, Tail&&...tail)
    {
-      return SelectByIndex<i - 1, Rest...>()(std::forward<Rest>(rest)...);
+      return SelectByIndex<i - 1, Tail...>()(std::forward<Tail>(tail)...);
    }
 };
 
-template<typename First, typename...Rest>
-struct SelectByIndex<0, First, Rest...>
+template<typename Head, typename...Tail>
+struct SelectByIndex<0, Head, Tail...>
 {
-   decltype(auto) operator()(First&& first, Rest&&...) { return std::forward<First>(first); }
+   decltype(auto) operator()(Head&& head, Tail&&...) { return std::forward<Head>(head); }
 };
 
-template<bool, typename T, typename First, typename...Rest>
+template<bool, typename T, typename Head, typename...Tail>
 struct SelectByTypeBase;
 
-template<typename T, typename First, typename...Rest>
-using SelectByType = SelectByTypeBase<std::is_convertible<First, T>::value, T, First, Rest...>;
+template<typename T, typename Head, typename...Tail>
+using SelectByType = SelectByTypeBase<std::is_convertible<Head, T>::value, T, Head, Tail...>;
 
-template<bool, typename T, typename First, typename...Rest>
+template<bool, typename T, typename Head, typename...Tail>
 struct SelectByTypeBase
 {
-   decltype(auto) operator()(First&& first, Rest&&...rest)
+   decltype(auto) operator()(Head&& head, Tail&&...tail)
    {
-      return SelectByType<T, Rest...>()(std::forward<Rest>(rest)...);
+      return SelectByType<T, Tail...>()(std::forward<Tail>(tail)...);
    }
 };
 
-template<typename T, typename First, typename...Rest>
-struct SelectByTypeBase<true, T, First, Rest...>
+template<typename T, typename Head, typename...Tail>
+struct SelectByTypeBase<true, T, Head, Tail...>
 {
-   decltype(auto) operator()(First&& first, Rest&&...) { return std::forward<First>(first); }
+   decltype(auto) operator()(Head&& head, Tail&&...) { return std::forward<Head>(head); }
 };
 
-template <size_t i, typename...TT>
-decltype(auto) select(TT&&...tt) { return SelectByIndex<i, TT...>()(std::forward<TT>(tt)...); }
+template <size_t i, typename...List>
+decltype(auto) select(List&&...list) { return SelectByIndex<i, List...>()(std::forward<List>(list)...); }
 
-template <typename T, typename...TT>
-decltype(auto) select(TT&&...tt) { return SelectByType<T, TT...>()(std::forward<TT>(tt)...); }
+template <typename T, typename...List>
+decltype(auto) select(List&&...list) { return SelectByType<T, List...>()(std::forward<List>(list)...); }
 
 
 int main()
