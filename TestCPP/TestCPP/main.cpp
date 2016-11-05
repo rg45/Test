@@ -89,4 +89,16 @@ int main()
    smartcall([](const std::string& name, const A& a) {PRINT(name); PRINT(a.value);}, a1, "Hello, World!!!", A(-1.0));
    smartcall([](auto&&...context) { PRINT(select<const char*>(context...)); }, a1, "Hello, World!!!", A(-1.0));
    smartcall(&print<double>, a1, "Pi", 3.14, A(-1.0));
+   auto l1 = [](auto&& arg) { PRINT(arg); };
+   l1(777);
+   using L1 = decltype(l1);
+   auto op1 = &L1::operator()<int>;
+   (l1.*op1)(555);
+
+   auto l2 = [](auto&&...arg) { PRINT(sizeof...(arg)); };
+   l2(1, 2, 3);
+   using L2 = decltype(l2);
+   auto op2 = &L2::operator()<>;
+   (l2.*op2)();
+
 }
