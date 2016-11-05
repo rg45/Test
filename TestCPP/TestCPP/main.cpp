@@ -6,23 +6,6 @@
 
 #include <boost/noncopyable.hpp>
 
-#define PRINT(ex) (std::cout << #ex" = " << (ex) << std::endl)
-
-template <size_t i, typename Head, typename...Tail>
-struct SelectByIndex
-{
-   decltype(auto) operator()(Head&&, Tail&&...tail)
-   {
-      return SelectByIndex<i - 1, Tail...>()(std::forward<Tail>(tail)...);
-   }
-};
-
-template <typename Head, typename...Tail>
-struct SelectByIndex<0, Head, Tail...>
-{
-   decltype(auto) operator()(Head&& head, Tail&&...) { return std::forward<Head>(head); }
-};
-
 template <bool, typename T, typename Head, typename...Tail>
 struct SelectByTypeBase;
 
@@ -43,9 +26,6 @@ struct SelectByTypeBase<true, T, Head, Tail...>
 {
    decltype(auto) operator()(Head&& head, Tail&&...) { return std::forward<Head>(head); }
 };
-
-template <size_t i, typename...List>
-decltype(auto) select(List&&...list) { return SelectByIndex<i, List...>()(std::forward<List>(list)...); }
 
 template <typename T, typename...List>
 decltype(auto) select(List&&...list) { return SelectByType<T, List...>()(std::forward<List>(list)...); }
@@ -84,6 +64,8 @@ decltype(auto) smartcall(F&& f, Args&&...args)
    return SmartCall<F>()(std::forward<F>(f), std::forward<Args>(args)...);
 }
 
+#define PRINT(ex) (std::cout << #ex" = " << (ex) << std::endl)
+
 template <typename T>
 void print(const std::string& name, const T& value)
 {
@@ -92,21 +74,11 @@ void print(const std::string& name, const T& value)
 
 int main()
 {
-   PRINT(sizeof(std::declval<int>()));
-
-   double pi = asin(2.0);
-
-   PRINT(select<1>(1, pi, "Hello!"));
-   select<1>(1, pi, "Hello!") = 3.14;
-   PRINT(select<1>(1, pi, "Hello!"));
-
    struct A : boost::noncopyable
    {
       explicit A(double value = 0) : value(value) { }
       double value;
    };
-
-   PRINT(select<0>(A(2.71)).value);
 
    A a1(3.14);
    PRINT(select<std::string>(a1, "Hello, World!!!", A()));
