@@ -6,6 +6,8 @@
 
 #include <boost/noncopyable.hpp>
 
+#define PRINT(ex) (std::cout << #ex" = " << (ex) << std::endl)
+
 template <bool, typename T, typename Head, typename...Tail>
 struct SelectByTypeBase;
 
@@ -30,23 +32,40 @@ struct SelectByTypeBase<true, T, Head, Tail...>
 template <typename T, typename...List>
 decltype(auto) select(List&&...list) { return SelectByType<T, List...>()(std::forward<List>(list)...); }
 
-template <typename T, typename type = void, typename = decltype(&F::operator())>
-using EnableIfFunctionObject = typename std::enable_if<true, type>::type;
+template <bool cond> using EnableIf = typename std::enable_if<cond>::type;
+template <typename T> using Decay = typename std::decay<T>::type;
 
-template <typename F, typename = void> struct SignatureOf_ { using type = void; };
-template <typename F> using SignatureOf = typename SignatureOf_<F>::type;
-template <typename R, typename...Args> struct SignatureOf_<R(Args...)> { typedef R type(Args...); };
-template <typename R, typename...Args> struct SignatureOf_<R(*)(Args...)> : SignatureOf_<R(Args...)> { };
-template <typename T, typename R, typename...Args> struct SignatureOf_<R(T::*)(Args...)> : SignatureOf_<R(Args...)> { };
-template <typename T, typename R, typename...Args> struct SignatureOf_<R(T::*)(Args...)const> : SignatureOf_<R(Args...)> { };
-template <typename F> struct SignatureOf_<F, EnableIfFunctionObject<F>> : SignatureOf_<decltype(&F::operator())> { };
+// template <typename T, typename = decltype(&T::operator())> struct EnableIfFunctionObject_ : std::enable_if<true>{ };
+// template <typename T> using EnableIfFunctionObject = typename EnableIfFunctionObject_<T>::type;
+template <typename T, typename = decltype(&T::operator())> using EnableIfFunctionObject = EnableIf<true>;
+template <typename T, typename = void> struct IsFunctionObject_ : std::false_type { };
+template <typename T> struct IsFunctionObject_<T, EnableIfFunctionObject<T>> : std::true_type { };
+template <typename T> constexpr bool isFunctionObject() { return IsFunctionObject_<Decay<T>>::value; };
+template <typename T> constexpr bool isFunctionObject(T&&) { return isFunctionObject<T>(); };
+
+template <typename T, typename = decltype(&T::operator())> struct EnableIfVariadicFunctionObject_ { using type = void; };
+template <typename T> using EnableIfVariadicFunctionObject = typename EnableIfVariadicFunctionObject_<T>::type;
+
+template <typename T> struct SignatureOfBase_;
+template <typename R, typename...Args> struct SignatureOfBase_<R(Args...)> { typedef R type(Args...); };
+template <typename R, typename...Args> struct SignatureOfBase_<R(*)(Args...)> : SignatureOfBase_<R(Args...)> { };
+template <typename T, typename R, typename...Args> struct SignatureOfBase_<R(T::*)(Args...)> : SignatureOfBase_<R(Args...)> { };
+template <typename T, typename R, typename...Args> struct SignatureOfBase_<R(T::*)(Args...)const> : SignatureOfBase_<R(Args...)> { };
+
+template <typename T, typename = void> struct SignatureOf_;
+template <typename T>
+struct SignatureOf_<T, EnableIf<isFunctionObject<T>()>> : SignatureOfBase_<decltype(&T::operator())> { };
+
+//template <typename T> struct SignatureOf_<T, EnableIfVariadicFunctionObject<T>> : SignatureOfBase_<decltype(&T::operator()<>)> { };
+template <typename T> using SignatureOf = typename SignatureOf_<T>::type;
+
 
 template <typename F, typename = SignatureOf<F>>
-struct SmartCall
-{
-   template <typename...Args>
-   decltype(auto) operator()(F&& f, Args&&...args) const { return f(std::forward<Args>(args)...); }
-};
+struct SmartCall;
+// {
+//    template <typename...Args>
+//    decltype(auto) operator()(F&& f, Args&&...args) const { return f(std::forward<Args>(args)...); }
+// };
 
 template <typename F, typename R, typename...Args>
 struct SmartCall<F, R(Args...)>
@@ -61,10 +80,13 @@ struct SmartCall<F, R(Args...)>
 template <typename F, typename...Args>
 decltype(auto) smartcall(F&& f, Args&&...args)
 {
-   return SmartCall<F>()(std::forward<F>(f), std::forward<Args>(args)...);
+   PRINT(isFunctionObject(f));
+   PRINT(isFunctionObject<F>());
+   PRINT(sizeof(&F::operator()));
+   PRINT(sizeof(EnableIf<isFunctionObject<F>()>*));
+   PRINT(sizeof(typename SignatureOf_<F>::type)); // use of undefined type
+   //return SmartCall<F, typename SignatureOf_<F>::type>()(std::forward<F>(f), std::forward<Args>(args)...);
 }
-
-#define PRINT(ex) (std::cout << #ex" = " << (ex) << std::endl)
 
 template <typename T>
 void print(const std::string& name, const T& value)
@@ -86,9 +108,15 @@ int main()
    PRINT(select<const A&>(a1, "Hello, World!!!", A()).value = 22.4);
    PRINT(select<const A&>(a1, "Hello, World!!!", A()).value);
 
-   smartcall([](const std::string& name, const A& a) {PRINT(name); PRINT(a.value);}, a1, "Hello, World!!!", A(-1.0));
-   smartcall([](auto&&...context) { PRINT(select<const char*>(context...)); }, a1, "Hello, World!!!", A(-1.0));
-   smartcall(&print<double>, a1, "Pi", 3.14, A(-1.0));
+   auto l3 = [](const std::string& name, const A& a) {PRINT(name); PRINT(a.value);};
+   PRINT(sizeof(decltype(&decltype(l3)::operator())));
+   PRINT(isFunctionObject(l3));
+   PRINT(isFunctionObject([](const std::string& name, const A& a) {PRINT(name); PRINT(a.value);}));
+   //PRINT(sizeof(SignatureOf<decltype(&decltype(l3)::operator())>)); //OK - should be error: 'illegal sizof operand'
+
+   smartcall([](const std::string& name/*, const A& a*/) {PRINT(name);}, a1, "Hello, World!!!", A(-1.0));
+   //smartcall([](auto&&...context) { PRINT(select<const char*>(context...)); }, a1, "Hello, World!!!", A(-1.0));
+   //smartcall(&print<double>, a1, "Pi", 3.14, A(-1.0));
    auto l1 = [](auto&& arg) { PRINT(arg); };
    l1(777);
    using L1 = decltype(l1);
