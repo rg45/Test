@@ -6,6 +6,9 @@
 
 #include <boost/noncopyable.hpp>
 
+// Will come with C++17
+template <bool cond, typename type = void> using enable_if_t = typename std::enable_if<cond, type>::type;
+
 template <bool, typename T, typename Head, typename...Tail>
 struct SelectByTypeBase;
 
@@ -30,16 +33,19 @@ struct SelectByTypeBase<true, T, Head, Tail...>
 template <typename T, typename...List>
 decltype(auto) select(List&&...list) { return SelectByType<T, List...>()(std::forward<List>(list)...); }
 
-template <typename T, typename type = void, typename = decltype(&F::operator())>
-using EnableIfFunctionObject = typename std::enable_if<true, type>::type;
+template <typename T, typename = decltype(&F::operator())> using EnableIfFunctionObject = enable_if_t<true>;
+template <typename T, typename = void> struct IsFunctionObject : std::false_type { };
+template <typename T> struct IsFunctionObject<T, EnableIfFunctionObject<T>> : std::true_type { };
+
+template <typename F> struct SignatureOfBase_;
+template <typename T, typename R, typename...Args> struct SignatureOfBase_<R(T::*)(Args...)> { using type = R(Args...); };
+template <typename T, typename R, typename...Args> struct SignatureOfBase_<R(T::*)(Args...)const> { using type = R(Args...); };
 
 template <typename F, typename = void> struct SignatureOf_ { using type = void; };
+template <typename R, typename...Args> struct SignatureOf_<R(*)(Args...)> { using type = R(Args...); };
+template <typename F> struct SignatureOf_<F, enable_if_t<IsFunctionObject<F>::value>> : SignatureOfBase_<decltype(&F::operator())> { };
+
 template <typename F> using SignatureOf = typename SignatureOf_<F>::type;
-template <typename R, typename...Args> struct SignatureOf_<R(Args...)> { typedef R type(Args...); };
-template <typename R, typename...Args> struct SignatureOf_<R(*)(Args...)> : SignatureOf_<R(Args...)> { };
-template <typename T, typename R, typename...Args> struct SignatureOf_<R(T::*)(Args...)> : SignatureOf_<R(Args...)> { };
-template <typename T, typename R, typename...Args> struct SignatureOf_<R(T::*)(Args...)const> : SignatureOf_<R(Args...)> { };
-template <typename F> struct SignatureOf_<F, EnableIfFunctionObject<F>> : SignatureOf_<decltype(&F::operator())> { };
 
 template <typename F, typename = SignatureOf<F>>
 struct SmartCall
