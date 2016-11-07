@@ -81,7 +81,23 @@ void print(const std::string& name, const T& value)
    std::cout << name << " = " << value << std::endl;
 }
 
+template <typename F, typename = void> struct SmartCall;
 
+template <typename R, typename...Args>
+struct SmartCall<R(*)(Args...)>
+{
+   template <typename...Context>
+   R operator()(R(*f)(Args...), Context&&...context)
+   {
+      return f(select<Args>(std::forward<Context>(context)...)...);
+   }
+};
+
+template <typename F, typename...Args>
+decltype(auto) smartcall(F&&, Args&&...)
+{
+   PRINT(__FUNCSIG__);
+}
 
 template <typename T>
 void printType() { PRINT(__FUNCSIG__); }
@@ -106,7 +122,7 @@ int main()
    smartcall$([](const std::string& name, const A& a) {PRINT(name); PRINT(a.value);}, a1, "Hello, World!!!", A(-1.0));
    smartcall$([](auto&&...context) { PRINT(__FUNCSIG__);/*PRINT(select<const char*>(context...));*/ }, a1, "Hello, World!!!", A(-1.0));
    smartcall$([](auto&&...) { PRINT(__FUNCSIG__); });
-   smartcall$(&print<double>, a1, "Pi", 3.14, A(-1.0));
+   smartcall(&print<double>, a1, "Pi", 3.14, A(-1.0));
    auto l1 = [](auto&& arg) { PRINT(arg); };
    l1(777);
    using L1 = decltype(l1);
@@ -118,4 +134,5 @@ int main()
    using L2 = decltype(l2);
    auto op2 = &L2::operator()<>;
    (l2.*op2)();
+   smartcall(l2, 3.14, "Hello!", a1);
 }
