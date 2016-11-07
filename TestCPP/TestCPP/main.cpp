@@ -28,15 +28,17 @@ template <bool cond, typename type = void> using enable_if_t = typename std::ena
 template <typename T> using decay_t = typename std::decay<T>::type;
 
 template <typename T, typename Head, typename...Tail>
-enable_if_t<!std::is_convertible<Head&&, T>::value, T&&> GetConvertibleTo(Head&&, Tail&&...tail)
+auto GetConvertibleTo(Head&&, Tail&&...tail) ->
+   enable_if_t<!std::is_convertible<Head, T>::value,
+      decltype(GetConvertibleTo<T>(std::forward<Tail>(tail)...))>
 {
    return GetConvertibleTo<T>(std::forward<Tail>(tail)...);
 }
 
 template <typename T, typename Head, typename...Tail>
-enable_if_t<std::is_convertible<Head&&, T>::value, T&&> GetConvertibleTo(Head&& head, Tail&&...)
+enable_if_t<std::is_convertible<Head, T>::value, Head&&> GetConvertibleTo(Head&& head, Tail&&...)
 {
-   return T(head);
+   return std::forward<Head>(head);
 }
 
 template <typename T>
@@ -45,9 +47,28 @@ T&& GetConvertibleTo()
    static_assert(false, __FUNCSIG__": The requested type is missing from the actual parameter list");
 }
 
+template <typename T, typename = decltype(&decay_t<T>::operator())>
+using IfNonTemplatedFunctionOperatorAvailable = enable_if_t<true>;
+
+template <typename F, typename...Context>
+decltype(auto) Apply(F&&, Context&&...context)
+{
+}
+
+template <typename R, typename...T, typename...Context>
+decltype(auto) Apply(R(*f)(T...), Context&&...context)
+{
+   PRINT(sizeof...(context));
+}
+
+void foo(int value) { }
+
 int main()
 {
-   TEST(TestGetConvertibleTo);
+   auto l1 = [](int) -> void { };
+   Apply(l1, 3.14);
+
+   //TEST(TestGetConvertibleTo);
    //TEST(TestGetTypeName);
 }
 
@@ -55,7 +76,9 @@ void TestGetConvertibleTo()
 {
    auto d = 3.14;
    PRINT(GetConvertibleTo<double&>(true, d) = 2.71);
+   PRINT(GetConvertibleTo<double&&>(d, 1.23, true, d));
    PRINT(d);
+   PRINT(GetTypeName<decltype(GetConvertibleTo<const std::string&>(2.71, false, "Hello!"))>());
 }
 
 void TestGetTypeName()
