@@ -40,19 +40,24 @@ template <typename T, typename = decltype(&F::operator())> using EnableIfFunctio
 template <typename T, typename = void> struct IsFunctionObject : std::false_type { };
 template <typename T> struct IsFunctionObject<T, EnableIfFunctionObject<T>> : std::true_type { };
 
+// Variadic function objects
+template <typename F, typename...Args> decltype(&F::operator()<Args...>) variadicOperator() { return &F::operator()<Args...>; }
 template <typename T, typename = decltype(&F::operator()<>)> using EnableIfVariadicFunctionObject = enable_if_t<true>;
 template <typename T, typename = void> struct IsVariadicFunctionObject : std::false_type { };
 template <typename T> struct IsVariadicFunctionObject<T, EnableIfVariadicFunctionObject<T>> : std::true_type { };
-template <typename F> decltype(&F::operator()<>) variadicOperator() { return &F::operator()<>; }
+template <typename F, typename = decltype(variadicOperator<F>())> struct VariadicFunctionObjectSignature;
+template <typename F, typename R, typename...Args> struct VariadicFunctionObjectSignature<F, R(F::*)(Args...)> { using type = R(Args...); };
+template <typename F, typename R, typename...Args> struct VariadicFunctionObjectSignature<F, R(F::*)(Args...)const> { using type = R(Args...); };
 
 template <typename F> struct SignatureOfBase_;
 template <typename T, typename R, typename...Args> struct SignatureOfBase_<R(T::*)(Args...)> { using type = R(Args...); };
 template <typename T, typename R, typename...Args> struct SignatureOfBase_<R(T::*)(Args...)const> { using type = R(Args...); };
 
-template <typename F, typename = void> struct SignatureOf_;// { using type = void; };
+
+template <typename F, typename = void> struct SignatureOf_;
 template <typename R, typename...Args> struct SignatureOf_<R(*)(Args...)> { using type = R(Args...); };
 template <typename F> struct SignatureOf_<F, enable_if_t<IsFunctionObject<F>::value>> : SignatureOfBase_<decltype(&F::operator())> { };
-template <typename F> struct SignatureOf_<F, enable_if_t<IsVariadicFunctionObject<F>::value>> : SignatureOfBase_<decltype(variadicOperator<F>())> { };
+template <typename F> struct SignatureOf_<F, enable_if_t<IsVariadicFunctionObject<F>::value>> : VariadicFunctionObjectSignature<F> { };
 
 template <typename F> using SignatureOf = typename SignatureOf_<F>::type;
 
