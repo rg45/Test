@@ -56,10 +56,10 @@ template <typename F> struct SignatureOf_<F, enable_if_t<IsVariadicFunctionObjec
 
 template <typename F> using SignatureOf = typename SignatureOf_<F>::type;
 
-template <typename F, typename = SignatureOf<F>> struct SmartCall;
+template <typename F, typename = SignatureOf<F>> struct SmartCall$;
 
 template <typename F, typename R, typename...Args>
-struct SmartCall<F, R(Args...)>
+struct SmartCall$<F, R(Args...)>
 {
    template <typename...Context>
    R operator()(F&& f, Context&&...context) const
@@ -69,10 +69,10 @@ struct SmartCall<F, R(Args...)>
 };
 
 template <typename F, typename...Args>
-decltype(auto) smartcall(F&& f, Args&&...args)
+decltype(auto) smartcall$(F&& f, Args&&...args)
 {
    PRINT(IsVariadicFunctionObject<F>::value);
-   return SmartCall<F>()(std::forward<F>(f), std::forward<Args>(args)...);
+   return SmartCall$<F>()(std::forward<F>(f), std::forward<Args>(args)...);
 }
 
 template <typename T>
@@ -80,6 +80,8 @@ void print(const std::string& name, const T& value)
 {
    std::cout << name << " = " << value << std::endl;
 }
+
+
 
 template <typename T>
 void printType() { PRINT(__FUNCSIG__); }
@@ -101,10 +103,10 @@ int main()
    PRINT(select<const A&>(a1, "Hello, World!!!", A()).value = 22.4);
    PRINT(select<const A&>(a1, "Hello, World!!!", A()).value);
 
-   smartcall([](const std::string& name, const A& a) {PRINT(name); PRINT(a.value);}, a1, "Hello, World!!!", A(-1.0));
-   smartcall([](auto&&...context) { PRINT(__FUNCSIG__);/*PRINT(select<const char*>(context...));*/ }, a1, "Hello, World!!!", A(-1.0));
-   smartcall([](auto&&...) { PRINT(__FUNCSIG__); });
-   smartcall(&print<double>, a1, "Pi", 3.14, A(-1.0));
+   smartcall$([](const std::string& name, const A& a) {PRINT(name); PRINT(a.value);}, a1, "Hello, World!!!", A(-1.0));
+   smartcall$([](auto&&...context) { PRINT(__FUNCSIG__);/*PRINT(select<const char*>(context...));*/ }, a1, "Hello, World!!!", A(-1.0));
+   smartcall$([](auto&&...) { PRINT(__FUNCSIG__); });
+   smartcall$(&print<double>, a1, "Pi", 3.14, A(-1.0));
    auto l1 = [](auto&& arg) { PRINT(arg); };
    l1(777);
    using L1 = decltype(l1);
