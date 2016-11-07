@@ -7,12 +7,9 @@
 
 #include <boost/noncopyable.hpp>
 
-// Will come with C++17
-template <bool cond, typename type = void> using enable_if_t = typename std::enable_if<cond, type>::type;
-template <typename T> using decay_t = typename std::decay<T>::type;
-
 // Development/Debug utility
 #define PRINT(ex) (std::cout << #ex" = " << (ex) << std::endl)
+#define TEST(name) void name(); name();
 
 template <typename T>
 std::string GetTypeName()
@@ -26,25 +23,42 @@ std::string GetTypeName()
 }
 template <typename T> std::string GetTypeName(T&&) { return GetTypeName<T>(); }
 
+// Will come with C++17
+template <bool cond, typename type = void> using enable_if_t = typename std::enable_if<cond, type>::type;
+template <typename T> using decay_t = typename std::decay<T>::type;
+
 template <typename T, typename Head, typename...Tail>
-enable_if_t<!std::is_convertible<Head&&, T>::value, T&&> select(Head&&, Tail&&...tail)
+enable_if_t<!std::is_convertible<Head&&, T>::value, T&&> GetConvertibleTo(Head&&, Tail&&...tail)
 {
-   return select<T>(std::forward<Tail>(tail)...);
+   return GetConvertibleTo<T>(std::forward<Tail>(tail)...);
 }
 
 template <typename T, typename Head, typename...Tail>
-enable_if_t<std::is_convertible<Head&&, T>::value, T&&> select(Head&& head, Tail&&...)
+enable_if_t<std::is_convertible<Head&&, T>::value, T&&> GetConvertibleTo(Head&& head, Tail&&...)
 {
    return T(head);
 }
 
 template <typename T>
-T&& select()
+T&& GetConvertibleTo()
 {
    static_assert(false, __FUNCSIG__": The requested type is missing from the actual parameter list");
 }
 
 int main()
+{
+   TEST(TestGetConvertibleTo);
+   //TEST(TestGetTypeName);
+}
+
+void TestGetConvertibleTo()
+{
+   auto d = 3.14;
+   PRINT(GetConvertibleTo<double&>(true, d) = 2.71);
+   PRINT(d);
+}
+
+void TestGetTypeName()
 {
    PRINT(GetTypeName(3.14));
    PRINT(GetTypeName(std::forward<double&&>(3.14)));
@@ -53,26 +67,13 @@ int main()
 
    double d = 3.14;
    PRINT(GetTypeName(d));
-   PRINT(GetTypeName([](int){}));
+   PRINT(GetTypeName([](int) {}));
 
    auto createLambda = [](int x) { return [x](int y, auto&&...) { return x + y; }; };
 
    PRINT(GetTypeName(createLambda(1)));
    PRINT(GetTypeName(createLambda(2)));
-   PRINT(GetTypeName(&decltype(createLambda(2))::operator()<>));
-   PRINT(GetTypeName(&decltype(createLambda(2))::operator()<double>));
-   PRINT(GetTypeName(&decltype(createLambda(2))::operator()<double&>));
-
-
-   //void test_select(); test_select();
-
-
-//   auto l2 = [](double d, auto&&...context) { PRINT(d); PRINT(select<double&>(context...)); PRINT(sizeof...(context)); };
-//   l2(1.23, "Hello", true, 3.14);
-}
-void test_select()
-{
-   auto d = 3.14;
-   PRINT(select<double&>(true, d) = 2.71);
-   PRINT(d);
+   PRINT(GetTypeName(&decltype(createLambda(2))::operator() < > ));
+   PRINT(GetTypeName(&decltype(createLambda(2))::operator() < double > ));
+   PRINT(GetTypeName(&decltype(createLambda(2))::operator() < double& > ));
 }
