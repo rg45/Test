@@ -118,11 +118,24 @@ decltype(auto) CallInContext(F&& f, Context&&...context)
 
 void foo(int value) { }
 
-//template <typename F>
-//struct VariadicFunctionObjectSignarureType = typename VariadicFunctionObjectSignarure<F>::type;
+template <typename F, typename...VarArgs>
+struct VariadicFunctionObjectSignature
+{
+   static constexpr decltype(&decay_t<F>::operator()<VarArgs...>) getMethod()
+   {
+      return &decay_t<F>::operator()<VarArgs...>;
+   }
+   using type = MethodSignatureType<decltype(getMethod())>;
+};
+
+template <typename F, typename...VarArgs>
+using VariadicFunctionObjectSignarureType = typename VariadicFunctionObjectSignature<F, VarArgs...>::type;
 
 int main()
 {
+   auto l2 = [](int, auto&&...context) { PRINT(GetConvertibleTo<int>(std::forward<decltype(context)>(context)...)); };
+   PRINT((GetTypeName<VariadicFunctionObjectSignarureType<decltype(l2), int>>()));
+
    auto l1 = [](int) -> void { };
    CallInContext(l1, 3.14);
 
