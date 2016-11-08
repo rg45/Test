@@ -84,7 +84,7 @@ struct TemplatedFunctionObjectSignature
 {
    static constexpr decltype(&decay_t<F>::operator()<VarArgs...>) getMethod()
    {
-      return &decay_t<F>::operator() <VarArgs...> ;
+      return &decay_t<F>::operator()<VarArgs...> ;
    }
    using type = MethodSignatureType<decltype(getMethod())>;
 };
@@ -109,6 +109,7 @@ enable_if_t<std::is_convertible<Head, T>::value, Head&&> GetConvertibleTo(Head&&
 template <typename T>
 T&& GetConvertibleTo()
 {
+   // This point should never be hit in a well-formed program
    static_assert(false, __FUNCSIG__": The requested type is missing from the actual parameter list");
 }
 
@@ -121,7 +122,7 @@ struct ContextCallImpl<R(Args...)>
    template <typename F, typename...Context>
    R operator()(F&& f, Context&&...context) const
    {
-      return f(GetConvertibleTo<Args>(context)...);
+      return f(GetConvertibleTo<Args>(std::forward<Context>(context)...)...);
    }
 };
 
@@ -138,24 +139,21 @@ struct ContextCallImpl<F, enable_if_t<IsNonTemplatedFunctionObject<F>::value>>
 template <typename F>
 struct ContextCallImpl<F, enable_if_t<IsVariadicFunctionObject<F>::value>>
 {
-   template <typename Signature, typename...Context>
-   struct Impl;
-
+   template <typename Signature, typename...Context> struct Impl;
    template <typename R, typename...Args, typename...Context>
    struct Impl<R(Args...), Context...>
    {
       R operator()(F&& f, Context&&...context) const
       {
-         PRINT(sizeof...(context));
-         return f(GetConvertibleTo<Args>(context)..., std::forward<Context>(context)...);
+         return f(GetConvertibleTo<Args>(std::forward<Context>(context)...)..., std::forward<Context>(context)...);
       }
    };
 
    template <typename...Context>
    decltype(auto) operator()(F&& f, Context&&...context) const
    {
-      PRINT(sizeof...(context));
-      using Signature = TruncatedSignatureType<TemplatedFunctionObjectSignarureType<F>, sizeof...(Context)>;
+      using FullSignature = TemplatedFunctionObjectSignarureType<F, Context...>;
+      using Signature = TruncatedSignatureType<FullSignature, sizeof...(Context)>;
       return Impl<Signature, Context...>()(std::forward<F>(f), std::forward<Context>(context)...);
    }
 };
@@ -163,7 +161,6 @@ struct ContextCallImpl<F, enable_if_t<IsVariadicFunctionObject<F>::value>>
 template <typename F, typename...Context>
 decltype(auto) ContextCall(F&& f, Context&&...context)
 {
-   PRINT(sizeof...(context));
    return ContextCallImpl<F>()(std::forward<F>(f), std::forward<Context>(context)...);
 }
 
@@ -182,26 +179,26 @@ int main()
 
 void TestContextCall()
 {
-   auto l2 = [](double i, double d, auto&&...context) { PRINT(i); PRINT(d); PRINT(sizeof...(context)); };
+   auto l2 = [](int i, short&& r, double d, auto&&...context) { PRINT(i), PRINT(r); PRINT(d); PRINT(sizeof...(context)); };
+   short s = 2;
+   ContextCall(l2, "Hello", 42, 3.14, s);
 
-   PRINT((GetTypeName<TruncatedSignatureType<TemplatedFunctionObjectSignarureType<decltype(l2), int, short, char>, 4>>()));
+   PRINT(IsVariadicFunctionObject<decltype(l2)>::value);
+   PRINT(IsNonTemplatedFunctionObject<decltype(l2)>::value);
+   ContextCall(l2, 43);
 
+   auto l1 = [](double d) { PRINT(d); };
+   PRINT(IsVariadicFunctionObject<decltype(l1)>::value);
+   PRINT(IsNonTemplatedFunctionObject<decltype(l1)>::value);
+   ContextCall(l1, 3.14);
 
-//    PRINT(IsVariadicFunctionObject<decltype(l2)>::value);
-//    PRINT(IsNonTemplatedFunctionObject<decltype(l2)>::value);
-//    ContextCall(l2, 3.14);
-
-//    auto l1 = [](double d) { PRINT(d); };
-//    PRINT(IsVariadicFunctionObject<decltype(l1)>::value);
-//    PRINT(IsNonTemplatedFunctionObject<decltype(l1)>::value);
-//    ContextCall(l1, 3.14);
-// 
-//    PRINT(IsVariadicFunctionObject<decltype(&foo)>::value);
-//    PRINT(IsNonTemplatedFunctionObject<decltype(&foo)>::value);
-//    ContextCall(foo, 42);
-//    ContextCall(&foo, 42);
+   PRINT(IsVariadicFunctionObject<decltype(&foo)>::value);
+   PRINT(IsNonTemplatedFunctionObject<decltype(&foo)>::value);
+   ContextCall(foo, 42);
+   ContextCall(&foo, 42);
 }
 
+#if 10
 void TestTruncatedSignatureType()
 {
    PRINT((GetTypeName<TruncatedSignatureType<int(double, short, bool), 0>>()));
@@ -257,3 +254,4 @@ void TestGetTypeName()
    PRINT(GetTypeName(&decltype(createLambda(2))::operator() < double > ));
    PRINT(GetTypeName(&decltype(createLambda(2))::operator() < double& > ));
 }
+#endif
