@@ -9,7 +9,7 @@
 
 // Development/Debug utility
 #define PRINT(ex) (std::cout << #ex" = " << (ex) << std::endl)
-#define TEST(name) void name(); name();
+#define TEST(name) void name(); std::cout << "\n==================== "#name" ====================" << std::endl; name();
 
 template <typename T>
 std::string GetTypeName()
@@ -59,25 +59,25 @@ struct IsVariadicFunctionObject : std::false_type { };
 template <typename T>
 struct IsVariadicFunctionObject<T, IfVariadicFunctionOperatorAvailable<T>> : std::true_type { };
 
-template <typename Signature, size_t newSize, typename NewSig, typename = void>
+template <typename Signature, size_t cutSize, typename NewSig, typename = void>
 struct TruncatedSignatureImpl;
 
-template <typename R, typename First, typename...Rest, size_t newSize, typename...NewArgs>
-struct TruncatedSignatureImpl<R(First, Rest...), newSize, R(NewArgs...), enable_if_t<sizeof...(NewArgs) < newSize>>
-   : TruncatedSignatureImpl<R(Rest...), newSize, R(NewArgs..., First)> { };
+template <typename R, typename First, typename...Rest, size_t cutSize, typename...NewArgs>
+struct TruncatedSignatureImpl<R(First, Rest...), cutSize, R(NewArgs...), enable_if_t<sizeof...(Rest) >= cutSize>>
+   : TruncatedSignatureImpl<R(Rest...), cutSize, R(NewArgs..., First)> { };
 
-template <typename R, typename...Args, size_t newSize, typename...NewArgs>
-struct TruncatedSignatureImpl<R(Args...), newSize, R(NewArgs...), enable_if_t<sizeof...(NewArgs) == newSize>>
+template <typename R, typename...Args, size_t cutSize, typename...NewArgs>
+struct TruncatedSignatureImpl<R(Args...), cutSize, R(NewArgs...), enable_if_t<sizeof...(Args) == cutSize>>
 {
    using type = R(NewArgs...);
 };
 
-template <typename Signature, size_t newSize> struct TruncatedSignature;
-template <typename R, typename...Args, size_t newSize>
-struct TruncatedSignature<R(Args...), newSize> : TruncatedSignatureImpl<R(Args...), newSize, R()> { };
+template <typename Signature, size_t cutSize> struct TruncatedSignature;
+template <typename R, typename...Args, size_t cutSize>
+struct TruncatedSignature<R(Args...), cutSize> : TruncatedSignatureImpl<R(Args...), cutSize, R()> { };
 
-template <typename Signature, size_t newSize>
-using TruncatedSignatureType = typename TruncatedSignature<Signature, newSize>::type;
+template <typename Signature, size_t cutSize>
+using TruncatedSignatureType = typename TruncatedSignature<Signature, cutSize>::type;
 
 template <typename F, typename...VarArgs>
 struct TemplatedFunctionObjectSignature
@@ -141,15 +141,29 @@ struct ContextCallImpl<F, enable_if_t<IsVariadicFunctionObject<F>::value>>
    template <typename Signature, typename...Context>
    struct Impl;
 
+   template <typename R, typename...Args, typename...Context>
+   struct Impl<R(Args...), Context...>
+   {
+      R operator()(F&& f, Context&&...context) const
+      {
+         PRINT(sizeof...(context));
+         return f(GetConvertibleTo<Args>(context)..., std::forward<Context>(context)...);
+      }
+   };
+
    template <typename...Context>
    decltype(auto) operator()(F&& f, Context&&...context) const
    {
+      PRINT(sizeof...(context));
+      using Signature = TruncatedSignatureType<TemplatedFunctionObjectSignarureType<F>, sizeof...(Context)>;
+      return Impl<Signature, Context...>()(std::forward<F>(f), std::forward<Context>(context)...);
    }
 };
 
 template <typename F, typename...Context>
 decltype(auto) ContextCall(F&& f, Context&&...context)
 {
+   PRINT(sizeof...(context));
    return ContextCallImpl<F>()(std::forward<F>(f), std::forward<Context>(context)...);
 }
 
@@ -168,20 +182,20 @@ int main()
 
 void TestContextCall()
 {
-   auto l2 = [](int i, double d, auto&&...context) { PRINT(i); PRINT(d); PRINT(sizeof...(context)); };
+   auto l2 = [](double i, double d, auto&&...context) { PRINT(i); PRINT(d); PRINT(sizeof...(context)); };
    PRINT(IsVariadicFunctionObject<decltype(l2)>::value);
    PRINT(IsNonTemplatedFunctionObject<decltype(l2)>::value);
    ContextCall(l2, 3.14);
 
-   auto l1 = [](double d) { PRINT(d); };
-   PRINT(IsVariadicFunctionObject<decltype(l1)>::value);
-   PRINT(IsNonTemplatedFunctionObject<decltype(l1)>::value);
-   ContextCall(l1, 3.14);
-
-   PRINT(IsVariadicFunctionObject<decltype(&foo)>::value);
-   PRINT(IsNonTemplatedFunctionObject<decltype(&foo)>::value);
-   ContextCall(foo, 42);
-   ContextCall(&foo, 42);
+//    auto l1 = [](double d) { PRINT(d); };
+//    PRINT(IsVariadicFunctionObject<decltype(l1)>::value);
+//    PRINT(IsNonTemplatedFunctionObject<decltype(l1)>::value);
+//    ContextCall(l1, 3.14);
+// 
+//    PRINT(IsVariadicFunctionObject<decltype(&foo)>::value);
+//    PRINT(IsNonTemplatedFunctionObject<decltype(&foo)>::value);
+//    ContextCall(foo, 42);
+//    ContextCall(&foo, 42);
 }
 
 void TestTruncatedSignatureType()
