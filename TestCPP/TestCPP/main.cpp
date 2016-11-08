@@ -50,23 +50,81 @@ T&& GetConvertibleTo()
 template <typename T, typename = decltype(&decay_t<T>::operator())>
 using IfNonTemplatedFunctionOperatorAvailable = enable_if_t<true>;
 
-template <typename F, typename...Context>
-decltype(auto) Apply(F&&, Context&&...context)
-{
-}
+template <typename T, typename = void>
+struct IsNonTemplatedFunctionObject : std::false_type { };
 
-template <typename R, typename...T, typename...Context>
-decltype(auto) Apply(R(*f)(T...), Context&&...context)
+template <typename T>
+struct IsNonTemplatedFunctionObject<T, IfNonTemplatedFunctionOperatorAvailable<T>> : std::true_type { };
+
+template <typename Method> struct MethodSignature;
+
+template <typename R, typename...Args>
+struct MethodSignature<R(*)(Args...)> { using type = R(Args...); };
+
+template <typename F, typename R, typename...Args>
+struct MethodSignature<R(F::*)(Args...)> { using type = R(Args...); };
+
+template <typename F, typename R, typename...Args>
+struct MethodSignature<R(F::*)(Args...)const> { using type = R(Args...); };
+
+template <typename Method>
+using MethodSignatureType = typename MethodSignature<Method>::type;
+
+template <typename F, typename = void>
+struct ContextSignature;
+//{
+//   template <typename...Context>
+//   using type = MethodSignatureType<decltype(&decay_t<F>::operator()<Context...>)>;
+//};
+
+template <typename F>
+struct ContextSignature<F, enable_if_t<IsNonTemplatedFunctionObject<F>::value>>
 {
-   PRINT(sizeof...(context));
+   template <typename...Context>
+   using foo = void;
+
+   template <typename...Context>
+   using type = MethodSignatureType<decltype(&decay_t<F>::operator())>;
+};
+
+//template <typename F, typename...Context>
+//using ContextSignatureType = typename ContextSignature<decay_t<F>>::type<Context...>;
+
+template <typename Signature> struct CallInContextImpl;
+
+template <typename R, typename...Args>
+struct CallInContextImpl<R(Args...)>
+{
+   template <typename F, typename...Context>
+   R operator()(F&& f, Context&&...context) const
+   {
+      return f(GetConvertibleTo<Args>(context)...);
+   }
+};
+
+template <typename F, typename...Context>
+struct Foo
+{
+   //using ContextSignatureT = typename ContextSignature<F>::type<Context...>;
+};
+
+template <typename F, typename...Context>
+decltype(auto) CallInContext(F&& f, Context&&...context)
+{
+   //PRINT(GetTypeName<typename Foo<F, Context...>::ContextSignatureT>());
+//   using Impl = CallInContextImpl<ContextSignatureType<F, Context...>>;
+//   return Impl()(std::forward<F>(f), std::forward<Context>(context)...);
 }
 
 void foo(int value) { }
 
+//template <typename F>
+//struct VariadicFunctionObjectSignarureType = typename VariadicFunctionObjectSignarure<F>::type;
+
 int main()
 {
    auto l1 = [](int) -> void { };
-   Apply(l1, 3.14);
+   CallInContext(l1, 3.14);
 
    //TEST(TestGetConvertibleTo);
    //TEST(TestGetTypeName);
