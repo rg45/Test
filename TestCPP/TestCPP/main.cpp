@@ -183,9 +183,13 @@ int main()
 void TestContextCall()
 {
    auto l2 = [](double i, double d, auto&&...context) { PRINT(i); PRINT(d); PRINT(sizeof...(context)); };
-   PRINT(IsVariadicFunctionObject<decltype(l2)>::value);
-   PRINT(IsNonTemplatedFunctionObject<decltype(l2)>::value);
-   ContextCall(l2, 3.14);
+
+   PRINT((GetTypeName<TruncatedSignatureType<TemplatedFunctionObjectSignarureType<decltype(l2), int, short, char>, 4>>()));
+
+
+//    PRINT(IsVariadicFunctionObject<decltype(l2)>::value);
+//    PRINT(IsNonTemplatedFunctionObject<decltype(l2)>::value);
+//    ContextCall(l2, 3.14);
 
 //    auto l1 = [](double d) { PRINT(d); };
 //    PRINT(IsVariadicFunctionObject<decltype(l1)>::value);
