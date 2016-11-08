@@ -36,7 +36,7 @@ int main()
    TEST(TestContextCall);
    //TEST(TestTruncatedSignatureType);
    //TEST(TestFunctionObjectKindDetection);
-   //TEST(TestGetConvertibleTo);
+   //TEST(TestMatch);
    //TEST(TestGetTypeName);
 }
 
@@ -78,7 +78,7 @@ void TestFunctionObjectKindDetection()
    PRINT(IsVariadicFunctionObject<decltype(l3)>::value);
    PRINT(IsNonTemplatedFunctionObject<decltype(l3)>::value);
 
-   auto l2 = [](int, auto&&...context) { PRINT(GetConvertibleTo<int>(std::forward<decltype(context)>(context)...)); };
+   auto l2 = [](int, auto&&...context) { PRINT(Match<int>(std::forward<decltype(context)>(context)...)); };
    PRINT(IsVariadicFunctionObject<decltype(l2)>::value);
    PRINT(IsNonTemplatedFunctionObject<decltype(l2)>::value);
 
@@ -87,13 +87,13 @@ void TestFunctionObjectKindDetection()
    PRINT(IsNonTemplatedFunctionObject<decltype(l1)>::value);
 }
 
-void TestGetConvertibleTo()
+void TestMatch()
 {
    auto d = 3.14;
-   PRINT(GetConvertibleTo<double&>(true, d) = 2.71);
-   PRINT(GetConvertibleTo<double&&>(d, 1.23, true, d));
+   PRINT(Match<double&>(true, d) = 2.71);
+   PRINT(Match<double&&>(d, 1.23, true, d));
    PRINT(d);
-   PRINT(GetTypeName<decltype(GetConvertibleTo<const std::string&>(2.71, false, "Hello!"))>());
+   PRINT(GetTypeName<decltype(Match<const std::string&>(2.71, false, "Hello!"))>());
 }
 
 void TestGetTypeName()
