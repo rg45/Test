@@ -1,8 +1,22 @@
+/**
+* @file    TestScenarioTools.h
+* @author  Sergey Romanchenko <sergeyr@cqg.com>
+* @date    November, 2016
+**/
+
 #pragma once
 
 #include <functional>
 #include <type_traits>
 
+namespace cqg
+{
+namespace RS
+{
+namespace TestFramework
+{
+namespace TestScenarioHelpers
+{
 // Will come with C++17
 template <bool cond, typename type = void> using enable_if_t = typename std::enable_if<cond, type>::type;
 template <typename T> using decay_t = typename std::decay<T>::type;
@@ -131,4 +145,7 @@ decltype(auto) ContextCall(F&& f, Context&&...context)
 {
    return ContextCallImpl<F>()(std::forward<F>(f), std::forward<Context>(context)...);
 }
-
+} // namespace TestScenarioHelpers
+} // namespace TestFramework
+} // namespace RS
+} // namespace cqg
