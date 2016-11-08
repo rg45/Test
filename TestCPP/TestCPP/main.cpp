@@ -59,6 +59,26 @@ struct IsVariadicFunctionObject : std::false_type { };
 template <typename T>
 struct IsVariadicFunctionObject<T, IfVariadicFunctionOperatorAvailable<T>> : std::true_type { };
 
+template <typename Signature, size_t newSize, typename NewSig, typename = void>
+struct TruncatedSignatureImpl;
+
+template <typename R, typename First, typename...Rest, size_t newSize, typename...NewArgs>
+struct TruncatedSignatureImpl<R(First, Rest...), newSize, R(NewArgs...), enable_if_t<sizeof...(NewArgs) < newSize>>
+   : TruncatedSignatureImpl<R(Rest...), newSize, R(NewArgs..., First)> { };
+
+template <typename R, typename...Args, size_t newSize, typename...NewArgs>
+struct TruncatedSignatureImpl<R(Args...), newSize, R(NewArgs...), enable_if_t<sizeof...(NewArgs) == newSize>>
+{
+   using type = R(NewArgs...);
+};
+
+template <typename Signature, size_t newSize> struct TruncatedSignature;
+template <typename R, typename...Args, size_t newSize>
+struct TruncatedSignature<R(Args...), newSize> : TruncatedSignatureImpl<R(Args...), newSize, R()> { };
+
+template <typename Signature, size_t newSize>
+using TruncatedSignatureType = typename TruncatedSignature<Signature, newSize>::type;
+
 template <typename F, typename...VarArgs>
 struct TemplatedFunctionObjectSignature
 {
@@ -139,6 +159,15 @@ int main()
 {
    std::cout << std::boolalpha;
 
+   TEST(TestContextCall);
+   //TEST(TestTruncatedSignatureType);
+   //TEST(TestFunctionObjectKindDetection);
+   //TEST(TestGetConvertibleTo);
+   //TEST(TestGetTypeName);
+}
+
+void TestContextCall()
+{
    auto l2 = [](int i, double d, auto&&...context) { PRINT(i); PRINT(d); PRINT(sizeof...(context)); };
    PRINT(IsVariadicFunctionObject<decltype(l2)>::value);
    PRINT(IsNonTemplatedFunctionObject<decltype(l2)>::value);
@@ -153,10 +182,15 @@ int main()
    PRINT(IsNonTemplatedFunctionObject<decltype(&foo)>::value);
    ContextCall(foo, 42);
    ContextCall(&foo, 42);
+}
 
-   //TEST(TestFunctionObjectKindDetection);
-   //TEST(TestGetConvertibleTo);
-   //TEST(TestGetTypeName);
+void TestTruncatedSignatureType()
+{
+   PRINT((GetTypeName<TruncatedSignatureType<int(double, short, bool), 0>>()));
+   PRINT((GetTypeName<TruncatedSignatureType<int(double, short, bool), 1>>()));
+   PRINT((GetTypeName<TruncatedSignatureType<int(double, short, bool), 2>>()));
+   PRINT((GetTypeName<TruncatedSignatureType<int(double, short, bool), 3>>()));
+   //PRINT((GetTypeName<TruncatedSignatureType<int(double, short, bool), 4>>()));
 }
 
 void TestFunctionObjectKindDetection()
