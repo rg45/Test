@@ -15,7 +15,9 @@ namespace RS
 {
 namespace TestFramework
 {
-namespace TestScenarioHelpers
+namespace TestScenarioTools
+{
+namespace detail
 {
 // Will come with C++17
 template <bool cond, typename type = void> using enable_if_t = typename std::enable_if<cond, type>::type;
@@ -74,20 +76,20 @@ template <typename Signature, size_t cutSize>
 using TruncatedSignatureType = typename TruncatedSignature<Signature, cutSize>::type;
 
 template <typename T, typename Head, typename...Tail>
-auto GetConvertibleTo(Head&&, Tail&&...tail) ->
-enable_if_t<!std::is_convertible<Head, T>::value, decltype(GetConvertibleTo<T>(std::forward<Tail>(tail)...))>
+auto Match(Head&&, Tail&&...tail) ->
+enable_if_t<!std::is_convertible<Head, T>::value, decltype(Match<T>(std::forward<Tail>(tail)...))>
 {
-   return GetConvertibleTo<T>(std::forward<Tail>(tail)...);
+   return Match<T>(std::forward<Tail>(tail)...);
 }
 
 template <typename T, typename Head, typename...Tail>
-enable_if_t<std::is_convertible<Head, T>::value, Head&&> GetConvertibleTo(Head&& head, Tail&&...)
+enable_if_t<std::is_convertible<Head, T>::value, Head&&> Match(Head&& head, Tail&&...)
 {
    return std::forward<Head>(head);
 }
 
 template <typename T>
-T GetConvertibleTo()
+T Match()
 {
    // This point should never be hit in a well-formed program
    static_assert(false, __FUNCSIG__": The requested type is missing from the actual parameter list");
@@ -102,7 +104,7 @@ struct ContextCallImpl<R(Args...)>
    template <typename F, typename...Context>
    R operator()(F&& f, Context&&...context) const
    {
-      return f(GetConvertibleTo<Args>(std::forward<Context>(context)...)...);
+      return f(Match<Args>(std::forward<Context>(context)...)...);
    }
 };
 
@@ -126,7 +128,7 @@ struct ContextCallImpl<F, enable_if_t<IsVariadicFunctionObject<F>::value>>
    {
       R operator()(F&& f, Context&&...context) const
       {
-         return f(GetConvertibleTo<Args>(std::forward<Context>(context)...)..., std::forward<Context>(context)...);
+         return f(Match<Args>(std::forward<Context>(context)...)..., std::forward<Context>(context)...);
       }
    };
 
@@ -145,7 +147,13 @@ decltype(auto) ContextCall(F&& f, Context&&...context)
 {
    return ContextCallImpl<F>()(std::forward<F>(f), std::forward<Context>(context)...);
 }
-} // namespace TestScenarioHelpers
+
+} // namespace detail
+
+using detail::ContextCall;
+using detail::Match;
+
+} // namespace TestScenarioTools
 } // namespace TestFramework
 } // namespace RS
 } // namespace cqg
