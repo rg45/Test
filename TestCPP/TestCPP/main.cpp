@@ -119,7 +119,7 @@ decltype(auto) CallInContext(F&& f, Context&&...context)
 void foo(int value) { }
 
 template <typename F, typename...VarArgs>
-struct VariadicFunctionObjectSignature
+struct TemplatedFunctionObjectSignature
 {
    static constexpr decltype(&decay_t<F>::operator()<VarArgs...>) getMethod()
    {
@@ -129,14 +129,32 @@ struct VariadicFunctionObjectSignature
 };
 
 template <typename F, typename...VarArgs>
-using VariadicFunctionObjectSignarureType = typename VariadicFunctionObjectSignature<F, VarArgs...>::type;
+using TemplatedFunctionObjectSignarureType = typename TemplatedFunctionObjectSignature<F, VarArgs...>::type;
+
+template <typename T, typename = decltype(&decay_t<T>::operator()<>)>
+using IfVariadicFunctionOperatorAvailable = enable_if_t<true>;
+
+template <typename T, typename = void>
+struct IsVariadicFunctionObject : std::false_type { };
+
+template <typename T>
+struct IsVariadicFunctionObject<T, IfVariadicFunctionOperatorAvailable<T>> : std::true_type { };
 
 int main()
 {
+   std::cout << std::boolalpha;
+
+   auto l3 = [](int i, auto&& x) { PRINT(i); PRINT(x); };
+   l3(42, 3.14);
+   PRINT(IsVariadicFunctionObject<decltype(l3)>::value);
+   PRINT((GetTypeName<TemplatedFunctionObjectSignarureType<decltype(l3), double>>()));
+
    auto l2 = [](int, auto&&...context) { PRINT(GetConvertibleTo<int>(std::forward<decltype(context)>(context)...)); };
-   PRINT((GetTypeName<VariadicFunctionObjectSignarureType<decltype(l2), int>>()));
+   PRINT(IsVariadicFunctionObject<decltype(l2)>::value);
+   PRINT((GetTypeName<TemplatedFunctionObjectSignarureType<decltype(l2), int>>()));
 
    auto l1 = [](int) -> void { };
+   PRINT(IsVariadicFunctionObject<decltype(l1)>::value);
    CallInContext(l1, 3.14);
 
    //TEST(TestGetConvertibleTo);
