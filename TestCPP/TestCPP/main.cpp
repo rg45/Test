@@ -72,28 +72,6 @@ struct TemplatedFunctionObjectSignature
 template <typename F, typename...VarArgs>
 using TemplatedFunctionObjectSignarureType = typename TemplatedFunctionObjectSignature<F, VarArgs...>::type;
 
-template <typename F, typename = void>
-struct ContextSignature;
-//{
-//   template <typename...Context>
-//   using type = MethodSignatureType<decltype(&decay_t<F>::operator()<Context...>)>;
-//};
-
-template <typename F>
-struct ContextSignature<F, enable_if_t<IsNonTemplatedFunctionObject<F>::value>>
-{
-   template <typename...Context>
-   using foo = void;
-
-   template <typename...Context>
-   using type = MethodSignatureType<decltype(&decay_t<F>::operator())>;
-};
-
-//template <typename F, typename...Context>
-//using ContextSignatureType = typename ContextSignature<decay_t<F>>::type<Context...>;
-
-template <typename Signature> struct CallInContextImpl;
-
 template <typename T, typename Head, typename...Tail>
 auto GetConvertibleTo(Head&&, Tail&&...tail) ->
 enable_if_t<!std::is_convertible<Head, T>::value,
@@ -114,8 +92,11 @@ T&& GetConvertibleTo()
    static_assert(false, __FUNCSIG__": The requested type is missing from the actual parameter list");
 }
 
+template <typename F, typename = void>
+struct ContextCallImpl;
+
 template <typename R, typename...Args>
-struct CallInContextImpl<R(Args...)>
+struct ContextCallImpl<R(Args...)>
 {
    template <typename F, typename...Context>
    R operator()(F&& f, Context&&...context) const
@@ -124,27 +105,56 @@ struct CallInContextImpl<R(Args...)>
    }
 };
 
-template <typename F, typename...Context>
-struct Foo
+template <typename R, typename...Args>
+struct ContextCallImpl<R(*)(Args...)> : ContextCallImpl<R(Args...)> { };
+
+template <typename R, typename...Args>
+struct ContextCallImpl<R(&)(Args...)> : ContextCallImpl<R(Args...)> { };
+
+template <typename F>
+struct ContextCallImpl<F, enable_if_t<IsNonTemplatedFunctionObject<F>::value>>
+: ContextCallImpl<MethodSignatureType<decltype(&decay_t<F>::operator())>> { };
+
+template <typename F>
+struct ContextCallImpl<F, enable_if_t<IsVariadicFunctionObject<F>::value>>
 {
-   //using ContextSignatureT = typename ContextSignature<F>::type<Context...>;
+   template <typename Signature, typename...Context>
+   struct Impl;
+
+   template <typename...Context>
+   decltype(auto) operator()(F&& f, Context&&...context) const
+   {
+   }
 };
 
 template <typename F, typename...Context>
-decltype(auto) CallInContext(F&& f, Context&&...context)
+decltype(auto) ContextCall(F&& f, Context&&...context)
 {
-   //PRINT(GetTypeName<typename Foo<F, Context...>::ContextSignatureT>());
-//   using Impl = CallInContextImpl<ContextSignatureType<F, Context...>>;
-//   return Impl()(std::forward<F>(f), std::forward<Context>(context)...);
+   return ContextCallImpl<F>()(std::forward<F>(f), std::forward<Context>(context)...);
 }
 
-void foo(int value) { }
+void foo(int value) { PRINT(value); }
 
 int main()
 {
    std::cout << std::boolalpha;
 
-   TEST(TestFunctionObjectKindDetection);
+   auto l2 = [](int i, double d, auto&&...context) { PRINT(i); PRINT(d); PRINT(sizeof...(context)); };
+   PRINT(IsVariadicFunctionObject<decltype(l2)>::value);
+   PRINT(IsNonTemplatedFunctionObject<decltype(l2)>::value);
+   ContextCall(l2, 3.14);
+
+   auto l1 = [](double d) { PRINT(d); };
+   PRINT(IsVariadicFunctionObject<decltype(l1)>::value);
+   PRINT(IsNonTemplatedFunctionObject<decltype(l1)>::value);
+   ContextCall(l1, 3.14);
+
+   PRINT(IsVariadicFunctionObject<decltype(&foo)>::value);
+   PRINT(IsNonTemplatedFunctionObject<decltype(&foo)>::value);
+   ContextCall(foo, 42);
+   ContextCall(&foo, 42);
+
+   //TEST(TestFunctionObjectKindDetection);
    //TEST(TestGetConvertibleTo);
    //TEST(TestGetTypeName);
 }
@@ -165,7 +175,6 @@ void TestFunctionObjectKindDetection()
    auto l1 = [](int) -> void { };
    PRINT(IsVariadicFunctionObject<decltype(l1)>::value);
    PRINT(IsNonTemplatedFunctionObject<decltype(l1)>::value);
-   CallInContext(l1, 3.14);
 }
 
 void TestGetConvertibleTo()
