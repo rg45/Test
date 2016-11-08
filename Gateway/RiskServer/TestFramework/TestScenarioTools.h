@@ -17,6 +17,8 @@ namespace TestFramework
 {
 namespace TestScenarioTools
 {
+namespace detail
+{
 // Will come with C++17
 template <bool cond, typename type = void> using enable_if_t = typename std::enable_if<cond, type>::type;
 template <typename T> using decay_t = typename std::decay<T>::type;
@@ -145,6 +147,12 @@ decltype(auto) ContextCall(F&& f, Context&&...context)
 {
    return ContextCallImpl<F>()(std::forward<F>(f), std::forward<Context>(context)...);
 }
+
+} // namespace detail
+
+using detail::ContextCall;
+using detail::Match;
+
 } // namespace TestScenarioTools
 } // namespace TestFramework
 } // namespace RS

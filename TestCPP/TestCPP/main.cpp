@@ -34,10 +34,10 @@ int main()
    std::cout << std::boolalpha;
 
    TEST(TestContextCall);
-   //TEST(TestTruncatedSignatureType);
-   //TEST(TestFunctionObjectKindDetection);
-   //TEST(TestMatch);
-   //TEST(TestGetTypeName);
+   TEST(TestTruncatedSignatureType);
+   TEST(TestFunctionObjectKindDetection);
+   TEST(TestMatch);
+   TEST(TestGetTypeName);
 }
 
 void TestContextCall()
@@ -46,17 +46,17 @@ void TestContextCall()
    short s = 2;
    ContextCall(l2, "Hello", 42, 3.14, s);
 
-   PRINT(IsVariadicFunctionObject<decltype(l2)>::value);
-   PRINT(IsNonTemplatedFunctionObject<decltype(l2)>::value);
+   PRINT(detail::IsVariadicFunctionObject<decltype(l2)>::value);
+   PRINT(detail::IsNonTemplatedFunctionObject<decltype(l2)>::value);
    ContextCall(l2, 43);
 
    auto l1 = [](double d) { PRINT(d); };
-   PRINT(IsVariadicFunctionObject<decltype(l1)>::value);
-   PRINT(IsNonTemplatedFunctionObject<decltype(l1)>::value);
+   PRINT(detail::IsVariadicFunctionObject<decltype(l1)>::value);
+   PRINT(detail::IsNonTemplatedFunctionObject<decltype(l1)>::value);
    ContextCall(l1, 3.14);
 
-   PRINT(IsVariadicFunctionObject<decltype(&foo)>::value);
-   PRINT(IsNonTemplatedFunctionObject<decltype(&foo)>::value);
+   PRINT(detail::IsVariadicFunctionObject<decltype(&foo)>::value);
+   PRINT(detail::IsNonTemplatedFunctionObject<decltype(&foo)>::value);
    ContextCall(foo, 42);
    ContextCall(&foo, 42);
 }
@@ -64,27 +64,27 @@ void TestContextCall()
 #if 10
 void TestTruncatedSignatureType()
 {
-   PRINT((GetTypeName<TruncatedSignatureType<int(double, short, bool), 0>>()));
-   PRINT((GetTypeName<TruncatedSignatureType<int(double, short, bool), 1>>()));
-   PRINT((GetTypeName<TruncatedSignatureType<int(double, short, bool), 2>>()));
-   PRINT((GetTypeName<TruncatedSignatureType<int(double, short, bool), 3>>()));
-   //PRINT((GetTypeName<TruncatedSignatureType<int(double, short, bool), 4>>()));
+   PRINT((GetTypeName<detail::TruncatedSignatureType<int(double, short, bool), 0>>()));
+   PRINT((GetTypeName<detail::TruncatedSignatureType<int(double, short, bool), 1>>()));
+   PRINT((GetTypeName<detail::TruncatedSignatureType<int(double, short, bool), 2>>()));
+   PRINT((GetTypeName<detail::TruncatedSignatureType<int(double, short, bool), 3>>()));
+   //PRINT((GetTypeName<detail::TruncatedSignatureType<int(double, short, bool), 4>>()));
 }
 
 void TestFunctionObjectKindDetection()
 {
    auto l3 = [](int i, auto&& x) { PRINT(i); PRINT(x); };
    l3(42, 3.14);
-   PRINT(IsVariadicFunctionObject<decltype(l3)>::value);
-   PRINT(IsNonTemplatedFunctionObject<decltype(l3)>::value);
+   PRINT(detail::IsVariadicFunctionObject<decltype(l3)>::value);
+   PRINT(detail::IsNonTemplatedFunctionObject<decltype(l3)>::value);
 
    auto l2 = [](int, auto&&...context) { PRINT(Match<int>(std::forward<decltype(context)>(context)...)); };
-   PRINT(IsVariadicFunctionObject<decltype(l2)>::value);
-   PRINT(IsNonTemplatedFunctionObject<decltype(l2)>::value);
+   PRINT(detail::IsVariadicFunctionObject<decltype(l2)>::value);
+   PRINT(detail::IsNonTemplatedFunctionObject<decltype(l2)>::value);
 
    auto l1 = [](int) -> void { };
-   PRINT(IsVariadicFunctionObject<decltype(l1)>::value);
-   PRINT(IsNonTemplatedFunctionObject<decltype(l1)>::value);
+   PRINT(detail::IsVariadicFunctionObject<decltype(l1)>::value);
+   PRINT(detail::IsNonTemplatedFunctionObject<decltype(l1)>::value);
 }
 
 void TestMatch()
