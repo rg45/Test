@@ -10,7 +10,7 @@
     <TestAdditionalExeDir>$(BoostDir)stage\lib\;$(StlportDir)\bin\</TestAdditionalExeDir>
   </PropertyGroup>
   <PropertyGroup>
-    <IncludePath>$(TestAdditionalIncludeDir);$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <IncludePath>$(SolutionDir)..\;$(TestAdditionalIncludeDir);$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
     <LibraryPath>$(TestAdditionalLibDir);$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup />

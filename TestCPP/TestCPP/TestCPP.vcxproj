@@ -149,6 +149,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\Gateway\RiskServer\TestFramework\TestScenarioTools.h" />
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <ItemGroup>
