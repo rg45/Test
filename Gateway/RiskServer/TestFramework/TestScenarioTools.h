@@ -15,7 +15,7 @@ namespace RS
 {
 namespace TestFramework
 {
-namespace TestScenarioHelpers
+namespace TestScenarioTools
 {
 // Will come with C++17
 template <bool cond, typename type = void> using enable_if_t = typename std::enable_if<cond, type>::type;
@@ -145,7 +145,7 @@ decltype(auto) ContextCall(F&& f, Context&&...context)
 {
    return ContextCallImpl<F>()(std::forward<F>(f), std::forward<Context>(context)...);
 }
-} // namespace TestScenarioHelpers
+} // namespace TestScenarioTools
 } // namespace TestFramework
 } // namespace RS
 } // namespace cqg

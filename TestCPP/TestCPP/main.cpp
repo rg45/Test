@@ -9,6 +9,8 @@
 
 #include <boost/noncopyable.hpp>
 
+using namespace cqg::RS::TestFramework::TestScenarioTools;
+
 // Development/Debug utility
 #define PRINT(ex) (std::cout << #ex" = " << (ex) << std::endl)
 #define TEST(name) void name(); std::cout << "\n==================== "#name" ====================" << std::endl; name();
