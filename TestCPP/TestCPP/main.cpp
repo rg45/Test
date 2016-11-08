@@ -27,35 +27,6 @@ template <typename T> std::string GetTypeName(T&&) { return GetTypeName<T>(); }
 template <bool cond, typename type = void> using enable_if_t = typename std::enable_if<cond, type>::type;
 template <typename T> using decay_t = typename std::decay<T>::type;
 
-template <typename T, typename Head, typename...Tail>
-auto GetConvertibleTo(Head&&, Tail&&...tail) ->
-   enable_if_t<!std::is_convertible<Head, T>::value,
-      decltype(GetConvertibleTo<T>(std::forward<Tail>(tail)...))>
-{
-   return GetConvertibleTo<T>(std::forward<Tail>(tail)...);
-}
-
-template <typename T, typename Head, typename...Tail>
-enable_if_t<std::is_convertible<Head, T>::value, Head&&> GetConvertibleTo(Head&& head, Tail&&...)
-{
-   return std::forward<Head>(head);
-}
-
-template <typename T>
-T&& GetConvertibleTo()
-{
-   static_assert(false, __FUNCSIG__": The requested type is missing from the actual parameter list");
-}
-
-template <typename T, typename = decltype(&decay_t<T>::operator())>
-using IfNonTemplatedFunctionOperatorAvailable = enable_if_t<true>;
-
-template <typename T, typename = void>
-struct IsNonTemplatedFunctionObject : std::false_type { };
-
-template <typename T>
-struct IsNonTemplatedFunctionObject<T, IfNonTemplatedFunctionOperatorAvailable<T>> : std::true_type { };
-
 template <typename Method> struct MethodSignature;
 
 template <typename R, typename...Args>
@@ -69,6 +40,37 @@ struct MethodSignature<R(F::*)(Args...)const> { using type = R(Args...); };
 
 template <typename Method>
 using MethodSignatureType = typename MethodSignature<Method>::type;
+
+template <typename T, typename = decltype(&decay_t<T>::operator())>
+using IfNonTemplatedFunctionOperatorAvailable = enable_if_t<true>;
+
+template <typename T, typename = void>
+struct IsNonTemplatedFunctionObject : std::false_type { };
+
+template <typename T>
+struct IsNonTemplatedFunctionObject<T, IfNonTemplatedFunctionOperatorAvailable<T>> : std::true_type { };
+
+template <typename T, typename = decltype(&decay_t<T>::operator() < > )>
+using IfVariadicFunctionOperatorAvailable = enable_if_t<true>;
+
+template <typename T, typename = void>
+struct IsVariadicFunctionObject : std::false_type { };
+
+template <typename T>
+struct IsVariadicFunctionObject<T, IfVariadicFunctionOperatorAvailable<T>> : std::true_type { };
+
+template <typename F, typename...VarArgs>
+struct TemplatedFunctionObjectSignature
+{
+   static constexpr decltype(&decay_t<F>::operator()<VarArgs...>) getMethod()
+   {
+      return &decay_t<F>::operator() <VarArgs...> ;
+   }
+   using type = MethodSignatureType<decltype(getMethod())>;
+};
+
+template <typename F, typename...VarArgs>
+using TemplatedFunctionObjectSignarureType = typename TemplatedFunctionObjectSignature<F, VarArgs...>::type;
 
 template <typename F, typename = void>
 struct ContextSignature;
@@ -91,6 +93,26 @@ struct ContextSignature<F, enable_if_t<IsNonTemplatedFunctionObject<F>::value>>
 //using ContextSignatureType = typename ContextSignature<decay_t<F>>::type<Context...>;
 
 template <typename Signature> struct CallInContextImpl;
+
+template <typename T, typename Head, typename...Tail>
+auto GetConvertibleTo(Head&&, Tail&&...tail) ->
+enable_if_t<!std::is_convertible<Head, T>::value,
+   decltype(GetConvertibleTo<T>(std::forward<Tail>(tail)...))>
+{
+   return GetConvertibleTo<T>(std::forward<Tail>(tail)...);
+}
+
+template <typename T, typename Head, typename...Tail>
+enable_if_t<std::is_convertible<Head, T>::value, Head&&> GetConvertibleTo(Head&& head, Tail&&...)
+{
+   return std::forward<Head>(head);
+}
+
+template <typename T>
+T&& GetConvertibleTo()
+{
+   static_assert(false, __FUNCSIG__": The requested type is missing from the actual parameter list");
+}
 
 template <typename R, typename...Args>
 struct CallInContextImpl<R(Args...)>
@@ -118,47 +140,32 @@ decltype(auto) CallInContext(F&& f, Context&&...context)
 
 void foo(int value) { }
 
-template <typename F, typename...VarArgs>
-struct TemplatedFunctionObjectSignature
-{
-   static constexpr decltype(&decay_t<F>::operator()<VarArgs...>) getMethod()
-   {
-      return &decay_t<F>::operator()<VarArgs...>;
-   }
-   using type = MethodSignatureType<decltype(getMethod())>;
-};
-
-template <typename F, typename...VarArgs>
-using TemplatedFunctionObjectSignarureType = typename TemplatedFunctionObjectSignature<F, VarArgs...>::type;
-
-template <typename T, typename = decltype(&decay_t<T>::operator()<>)>
-using IfVariadicFunctionOperatorAvailable = enable_if_t<true>;
-
-template <typename T, typename = void>
-struct IsVariadicFunctionObject : std::false_type { };
-
-template <typename T>
-struct IsVariadicFunctionObject<T, IfVariadicFunctionOperatorAvailable<T>> : std::true_type { };
-
 int main()
 {
    std::cout << std::boolalpha;
 
+   TEST(TestFunctionObjectKindDetection);
+   //TEST(TestGetConvertibleTo);
+   //TEST(TestGetTypeName);
+}
+
+void TestFunctionObjectKindDetection()
+{
    auto l3 = [](int i, auto&& x) { PRINT(i); PRINT(x); };
    l3(42, 3.14);
    PRINT(IsVariadicFunctionObject<decltype(l3)>::value);
+   PRINT(IsNonTemplatedFunctionObject<decltype(l3)>::value);
    PRINT((GetTypeName<TemplatedFunctionObjectSignarureType<decltype(l3), double>>()));
 
    auto l2 = [](int, auto&&...context) { PRINT(GetConvertibleTo<int>(std::forward<decltype(context)>(context)...)); };
    PRINT(IsVariadicFunctionObject<decltype(l2)>::value);
+   PRINT(IsNonTemplatedFunctionObject<decltype(l2)>::value);
    PRINT((GetTypeName<TemplatedFunctionObjectSignarureType<decltype(l2), int>>()));
 
    auto l1 = [](int) -> void { };
    PRINT(IsVariadicFunctionObject<decltype(l1)>::value);
+   PRINT(IsNonTemplatedFunctionObject<decltype(l1)>::value);
    CallInContext(l1, 3.14);
-
-   //TEST(TestGetConvertibleTo);
-   //TEST(TestGetTypeName);
 }
 
 void TestGetConvertibleTo()
