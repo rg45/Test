@@ -349,7 +349,7 @@ decltype(auto) ContextCallForEach(Context&&...context)
          ContextCall(forward<decltype(f)>(f), forward<decltype(context)>(context)...);
          return 0;
       };
-      std::initializer_list<int> { callWrapper(f)... };
+      std::initializer_list<int> { callWrapper(forward<decltype(f)>(f))... };
    };
 }
 
