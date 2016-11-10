@@ -6,10 +6,12 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <tuple>
 
 #include <boost/noncopyable.hpp>
 
 using namespace cqg::RS::TestFramework::TestScenarioTools;
+using namespace cqg::RS::TestFramework::TestScenarioTools::detail;
 
 // Development/Debug utility
 #define PRINT(ex) (std::cout << #ex" = " << (ex) << std::endl)
@@ -17,15 +19,93 @@ using namespace cqg::RS::TestFramework::TestScenarioTools;
 
 void foo(int value) { PRINT(value); }
 
+template <typename T, typename...Context> struct IsAnyCastAvailable;
+template <typename T> struct IsAnyCastAvailable<T> : std::false_type { };
+template <typename T, typename Context> struct IsAnyCastAvailable<T, Context>
+: std::is_constructible<T, Context&&> { };
+
+template <typename T, typename...Context> struct IsExactCastAvailable;
+template <typename T> struct IsExactCastAvailable<T> : std::false_type { };
+template <typename T, typename Context> struct IsExactCastAvailable<T, Context> : std::integral_constant<bool,
+   IsAnyCastAvailable<T, Context>::value &&
+   std::is_same<decay_t<T>, decay_t<Context>>::value> { };
+
+template <typename T, typename...Context> struct IsInexactCastAvailable;
+template <typename T> struct IsInexactCastAvailable<T> : std::false_type { };
+template <typename T, typename Context> struct IsInexactCastAvailable<T, Context>
+: std::integral_constant<bool,
+   IsAnyCastAvailable<T, Context>::value &&
+   !std::is_same<decay_t<T>, decay_t<Context>>::value> { };
+
+using std::tuple;
+
+template <typename T, typename NoMatches, typename Inexact, typename NoExact, typename Tail, typename = void>
+struct ContextMatchImpl;
+
+template <typename T, typename...NoMatches, typename Next, typename...Tail>
+struct ContextMatchImpl<T, tuple<NoMatches...>, tuple<>, tuple<>, tuple<Next, Tail...>,
+enable_if_t<!IsAnyCastAvailable<T, Next>::value>>
+: ContextMatchImpl<T, tuple<NoMatches..., Next>, tuple<>, tuple<>, tuple<Tail...>> { };
+
+template <typename T, typename...NoMatches, typename Next, typename...Tail>
+struct ContextMatchImpl<T, tuple<NoMatches...>, tuple<>, tuple<>, tuple<Next, Tail...>,
+enable_if_t<IsInexactCastAvailable<T, Next>::value>>
+: ContextMatchImpl<T, tuple<NoMatches...>, tuple<Next>, tuple<>, tuple<Tail...>> { };
+
+template <typename T, typename...NoMatches, typename Inexact, typename...NoExact, typename Next, typename...Tail>
+struct ContextMatchImpl<T, tuple<NoMatches...>, tuple<Inexact>, tuple<NoExact...>, tuple<Next, Tail...>,
+enable_if_t<!IsExactCastAvailable<T, Next>::value>>
+: ContextMatchImpl<T, tuple<NoMatches...>, tuple<Inexact>, tuple<NoExact..., Next>, tuple<Tail...>> { };
+
+// Exact type match
+template <typename T, typename...NoMatches, typename...Inexact, typename...NoExact, typename Exact, typename...Tail>
+struct ContextMatchImpl<T, tuple<NoMatches...>, tuple<Inexact...>, tuple<NoExact...>, tuple<Exact, Tail...>,
+enable_if_t<IsExactCastAvailable<T, Exact>::value>>
+{
+   Exact&& operator()(NoMatches&&..., Inexact&&..., NoExact&&..., Exact&& exact, Tail&&...) const
+   {
+      return forward<Exact>(exact);
+   }
+};
+
+// Inexact type match
+template <typename T, typename...NoMatches, typename Inexact, typename...NoExact>
+struct ContextMatchImpl<T, tuple<NoMatches...>, tuple<Inexact>, tuple<NoExact...>, tuple<>>
+{
+   Inexact&& operator()(NoMatches&&..., Inexact&& inexact, NoExact&&...) const
+   {
+      return forward<Inexact>(inexact);
+   }
+};
+
+// No matches
+template <typename T, typename...NoMatches>
+struct ContextMatchImpl<T, tuple<NoMatches...>, tuple<>, tuple<>, tuple<>>
+{
+   T&& operator()(NoMatches&&...) const
+   {
+      // This point should never be hit in a well-formed program
+      static_assert(false, "The requested type is missing from the actual parameter list: " __FUNCSIG__);
+   }
+};
+
+template <typename T, typename...Context>
+decltype(auto) ContextMatch2(Context&&...context)
+{
+   return ContextMatchImpl<T, tuple<>, tuple<>, tuple<>, tuple<Context...>>()(forward<Context>(context)...);
+}
+
 int main()
 {
    std::cout << std::boolalpha;
 
-   TEST(TestContextCall);
-   TEST(TestTruncatedSignatureType);
-   TEST(TestFunctionObjectKindDetection);
-   TEST(TestMatch);
-   TEST(TestGetTypeName);
+   PRINT(ContextMatch2<std::string>("Hello, World!", 3.14, size_t(42), ""));
+
+//    TEST(TestContextCall);
+//    TEST(TestTruncatedSignatureType);
+//    TEST(TestFunctionObjectKindDetection);
+//    TEST(TestMatch);
+//    TEST(TestGetTypeName);
 }
 
 void TestContextCall()
