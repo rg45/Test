@@ -10,6 +10,7 @@
 #include <functional>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <type_traits>
 
 namespace cqg
@@ -105,6 +106,10 @@ decltype(auto) ContextCall(F&&, Context&&...);
 template <typename...Context>
 decltype(auto) ContextCallForEach(Context&&...context);
 
+/// @brief Matches object of the Context by the index
+template <size_t index, typename...Context>
+decltype(auto) ContextGet(Context&&...);
+
 /// @brief Matches a first appropriate object of the Context that could be used for constructing of an object
 /// of the requested type. Raises a compile time error if not found.
 template <typename T, typename...Context>
@@ -126,6 +131,7 @@ std::string GetTypeName(T&&);
 namespace detail
 {
 using std::forward;
+using std::tuple;
 
 // C++17
 template <bool cond, typename type = void>
@@ -187,25 +193,76 @@ struct TruncatedSignature<R(Args...), cutSize> : TruncatedSignatureImpl<R(Args..
 template <typename Signature, size_t cutSize>
 using TruncatedSignatureType = typename TruncatedSignature<Signature, cutSize>::type;
 
-template <typename T, typename Head, typename...Tail>
-auto contextMatch(Head&&, Tail&&...tail) ->
-enable_if_t<!std::is_constructible<T, Head>::value, decltype(contextMatch<T>(forward<Tail>(tail)...))>
-{
-   return contextMatch<T>(forward<Tail>(tail)...);
-}
+template <typename T, typename...Context> struct IsAnyCastAvailable;
+template <typename T> struct IsAnyCastAvailable<T> : std::false_type { };
+template <typename T, typename Context> struct IsAnyCastAvailable<T, Context>
+: std::is_constructible<T, Context&&> { };
 
-template <typename T, typename Head, typename...Tail>
-enable_if_t<std::is_constructible<T, Head>::value, Head&&> contextMatch(Head&& head, Tail&&...)
-{
-   return forward<Head>(head);
-}
+template <typename T, typename...Context> struct IsExactCastAvailable;
+template <typename T> struct IsExactCastAvailable<T> : std::false_type { };
+template <typename T, typename Context> struct IsExactCastAvailable<T, Context> : std::integral_constant<bool,
+   IsAnyCastAvailable<T, Context>::value &&
+   std::is_same<decay_t<T>, decay_t<Context>>::value> { };
 
-template <typename T>
-T contextMatch()
+template <typename T, typename...Context> struct IsInexactCastAvailable;
+template <typename T> struct IsInexactCastAvailable<T> : std::false_type { };
+template <typename T, typename Context> struct IsInexactCastAvailable<T, Context>
+: std::integral_constant<bool,
+   IsAnyCastAvailable<T, Context>::value &&
+   !std::is_same<decay_t<T>, decay_t<Context>>::value> { };
+
+template <typename T, typename NoMatches, typename Inexact, typename NoExact, typename Tail, typename = void>
+struct ContextMatchImpl;
+
+template <typename T, typename...Context>
+using ContextMatchFacade = ContextMatchImpl<T, tuple<>, tuple<>, tuple<>, tuple<Context...>>;
+
+template <typename T, typename...NoMatches, typename Next, typename...Tail>
+struct ContextMatchImpl<T, tuple<NoMatches...>, tuple<>, tuple<>, tuple<Next, Tail...>,
+enable_if_t<!IsAnyCastAvailable<T, Next>::value>>
+: ContextMatchImpl<T, tuple<NoMatches..., Next>, tuple<>, tuple<>, tuple<Tail...>> { };
+
+template <typename T, typename...NoMatches, typename Next, typename...Tail>
+struct ContextMatchImpl<T, tuple<NoMatches...>, tuple<>, tuple<>, tuple<Next, Tail...>,
+enable_if_t<IsInexactCastAvailable<T, Next>::value>>
+: ContextMatchImpl<T, tuple<NoMatches...>, tuple<Next>, tuple<>, tuple<Tail...>> { };
+
+template <typename T, typename...NoMatches, typename Inexact, typename...NoExact, typename Next, typename...Tail>
+struct ContextMatchImpl<T, tuple<NoMatches...>, tuple<Inexact>, tuple<NoExact...>, tuple<Next, Tail...>,
+enable_if_t<!IsExactCastAvailable<T, Next>::value>>
+: ContextMatchImpl<T, tuple<NoMatches...>, tuple<Inexact>, tuple<NoExact..., Next>, tuple<Tail...>> { };
+
+// Exact type match
+template <typename T, typename...NoMatches, typename...Inexact, typename...NoExact, typename Exact, typename...Tail>
+struct ContextMatchImpl<T, tuple<NoMatches...>, tuple<Inexact...>, tuple<NoExact...>, tuple<Exact, Tail...>,
+enable_if_t<IsExactCastAvailable<T, Exact>::value>>
 {
-   // This point should never be hit in a well-formed program
-   static_assert(false, __FUNCSIG__": The requested type is missing from the actual parameter list.");
-}
+   Exact&& operator()(NoMatches&&..., Inexact&&..., NoExact&&..., Exact&& exact, Tail&&...) const
+   {
+      return forward<Exact>(exact);
+   }
+};
+
+// Inexact type match
+template <typename T, typename...NoMatches, typename Inexact, typename...NoExact>
+struct ContextMatchImpl<T, tuple<NoMatches...>, tuple<Inexact>, tuple<NoExact...>, tuple<>>
+{
+   Inexact&& operator()(NoMatches&&..., Inexact&& inexact, NoExact&&...) const
+   {
+      return forward<Inexact>(inexact);
+   }
+};
+
+// No matches
+template <typename T, typename...NoMatches>
+struct ContextMatchImpl<T, tuple<NoMatches...>, tuple<>, tuple<>, tuple<>>
+{
+   T&& operator()(NoMatches&&...) const
+   {
+      // This point should never be hit in a well-formed program
+      static_assert(false, "The requested type is missing from the actual parameter list: " __FUNCSIG__);
+   }
+};
 
 template <typename F, typename = void>
 struct ContextCallImpl
@@ -224,7 +281,7 @@ struct ContextCallImpl<R(Args...)>
    template <typename F, typename...Context>
    R operator()(F&& f, Context&&...context) const
    {
-      return f(contextMatch<Args>(forward<Context>(context)...)...);
+      return f(ContextMatch<Args>(forward<Context>(context)...)...);
    }
 };
 
@@ -248,7 +305,7 @@ struct ContextCallImpl<F, enable_if_t<IsVariadicFunctionObject<F>::value>>
    {
       R operator()(F&& f, Context&&...context) const
       {
-         return f(contextMatch<Args>(forward<Context>(context)...)..., forward<Context>(context)...);
+         return f(ContextMatch<Args>(forward<Context>(context)...)..., forward<Context>(context)...);
       }
    };
 
@@ -296,11 +353,19 @@ decltype(auto) ContextCallForEach(Context&&...context)
    };
 }
 
+template <size_t index, typename...Context>
+decltype(auto) ContextGet(Context&&...context)
+{
+   static_assert(index < sizeof...(Context), "Actual parameter index is out of range: " __FUNCSIG__);
+   using namespace detail;
+   return std::get<index>(tuple<Context&&...>(forward<Context>(context)...));
+}
+
 template <typename T, typename...Context>
 decltype(auto) ContextMatch(Context&&...context)
 {
    using namespace detail;
-   return contextMatch<T>(forward<Context>(context)...);
+   return ContextMatchFacade<T, Context...>()(forward<Context>(context)...);
 }
 
 template <typename Data>
