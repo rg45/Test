@@ -22,15 +22,11 @@ int main()
 {
    std::cout << std::boolalpha;
 
-   PRINT(ContextMatch<std::string>("Hello, World!", 3.14, size_t(42), ""));
-   PRINT(ContextGet<1>("Hello, World!", 3.14, size_t(42), ""));
-   PRINT((intptr_t)ContextMatch<class C*>("Hello, World!", 3.14, size_t(42), "", nullptr));
-
-//    TEST(TestContextCall);
-//    TEST(TestTruncatedSignatureType);
-//    TEST(TestFunctionObjectKindDetection);
-//    TEST(TestMatch);
-//    TEST(TestGetTypeName);
+   TEST(TestContextCall);
+   TEST(TestTruncatedSignatureType);
+   TEST(TestFunctionObjectKindDetection);
+   TEST(TestContextMatch);
+   TEST(TestGetTypeName);
 }
 
 void TestContextCall()
@@ -80,13 +76,16 @@ void TestFunctionObjectKindDetection()
    PRINT(detail::IsNonTemplatedFunctionObject<decltype(l1)>::value);
 }
 
-void TestMatch()
+void TestContextMatch()
 {
    auto d = 3.14;
    PRINT(ContextMatch<double&>(true, d) = 2.71);
    PRINT(ContextMatch<double&&>(d, 1.23, true, d));
    PRINT(d);
    PRINT(GetTypeName<decltype(ContextMatch<const std::string&>(2.71, false, "Hello!"))>());
+   PRINT(ContextMatch<std::string>("Hello, World!", 3.14, size_t(42), ""));
+   PRINT(ContextGet<1>("Hello, World!", 3.14, size_t(42), ""));
+   PRINT((intptr_t)ContextMatch<class C*>("Hello, World!", 3.14, size_t(42), "", nullptr));
 }
 
 void TestGetTypeName()
