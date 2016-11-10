@@ -15,18 +15,6 @@ using namespace cqg::RS::TestFramework::TestScenarioTools;
 #define PRINT(ex) (std::cout << #ex" = " << (ex) << std::endl)
 #define TEST(name) void name(); std::cout << "\n==================== "#name" ====================" << std::endl; name();
 
-template <typename T>
-std::string GetTypeName()
-{
-   std::ostringstream output;
-   output << __FUNCSIG__;
-   auto&& str = output.str();
-   auto begin = str.find(__FUNCTION__) + std::string(__FUNCTION__).size() + 1;
-   auto end = str.find_last_of('>');
-   return str.substr(begin, end - begin);
-}
-template <typename T> std::string GetTypeName(T&&) { return GetTypeName<T>(); }
-
 void foo(int value) { PRINT(value); }
 
 int main()
@@ -78,7 +66,7 @@ void TestFunctionObjectKindDetection()
    PRINT(detail::IsVariadicFunctionObject<decltype(l3)>::value);
    PRINT(detail::IsNonTemplatedFunctionObject<decltype(l3)>::value);
 
-   auto l2 = [](int, auto&&...context) { PRINT(Match<int>(std::forward<decltype(context)>(context)...)); };
+   auto l2 = [](int, auto&&...context) { PRINT(ContextMatch<int>(std::forward<decltype(context)>(context)...)); };
    PRINT(detail::IsVariadicFunctionObject<decltype(l2)>::value);
    PRINT(detail::IsNonTemplatedFunctionObject<decltype(l2)>::value);
 
@@ -90,10 +78,10 @@ void TestFunctionObjectKindDetection()
 void TestMatch()
 {
    auto d = 3.14;
-   PRINT(Match<double&>(true, d) = 2.71);
-   PRINT(Match<double&&>(d, 1.23, true, d));
+   PRINT(ContextMatch<double&>(true, d) = 2.71);
+   PRINT(ContextMatch<double&&>(d, 1.23, true, d));
    PRINT(d);
-   PRINT(GetTypeName<decltype(Match<const std::string&>(2.71, false, "Hello!"))>());
+   PRINT(GetTypeName<decltype(ContextMatch<const std::string&>(2.71, false, "Hello!"))>());
 }
 
 void TestGetTypeName()
