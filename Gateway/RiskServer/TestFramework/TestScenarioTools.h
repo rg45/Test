@@ -6,7 +6,10 @@
 
 #pragma once
 
+#include <boost/format.hpp>
 #include <functional>
+#include <sstream>
+#include <string>
 #include <type_traits>
 
 namespace cqg
@@ -17,11 +20,120 @@ namespace TestFramework
 {
 namespace TestScenarioTools
 {
+/* 
+   This is a simple toolkit useful for unit test development.
+   It helps to make your unit tests more compact, declarative, readable and reliable.
+   The main idea is that you create methods constructing test data rather than the data itself.
+   The methods are any available callable instances: free functions, user defined function objects and lambdas.
+   Variadic function objects and lambdas are also supported.
+   Ideally you don't need to create any local objects in your UT methods at all.
+
+   The 'Context' is a basic concept used in the public interface.
+   The contexts are just variadic data packs containing actual parameters for your custom methods invocations.
+   The same data pack can be used for invocation of methods with different formal parameter lists.
+
+   See real examples of usage in existing Risk Server UT methods.
+
+   A simple synthetic example is below:
+
+      // Specific methods for test scenario description.
+      // Could be implemented as any callable instances: objects, lambdas or free functions:
+      auto exchange       = [](...) {...}     // creates or acquires an exchnage
+      auto contract       = [](...) {...}     // creates or acquires a contract
+      auto account        = [](...) {...}     // creates or acquires an account
+      auto testCase       = [](...) {...}     // creates a test case
+      auto doCalculations = [](...) {...}     // does a part of business logic that is a subject of the testing
+
+      auto staticRiskData1 = tst::Aggregate(
+         exchange(1,
+            commodity(11,
+               contract(111, InstrumentFuture),
+               contract(112, InstrumentFuture)),
+            commodity(12,
+               contract(121, InstrumentFuture),
+               contract(122, InstrumentFuture))),
+         exchange(2,
+            commodity(21,
+               contract(211, InstrumentFuture),
+               contract(212, InstrumentFuture)),
+            commodity(22,
+               contract(221, InstrumentFuture),
+               contract(222, InstrumentFuture))));
+
+         auto riskData1 = tst::Aggregate(
+            staticRiskData1,
+            account(100, master(AccountGroupRelation::BorrowFromMaster),
+               position(ContractID(121), Quantity(10),
+                  order(1, quantity(10)))),
+            account(101,
+               position(ContractID(121), Quantity(10),
+                  order(2, quantity(10)))));
+
+         testCase(1, "The test case description",
+            riskData1(
+               ...optional modifications...),
+            doCalculations(AccountID(100),
+               [](TestData&, const OrderMap&, Context&&...)
+               {
+                  UT_ASSERT_...
+                  UT_ASSERT_...
+                  UT_ASSERT_...
+               });
+
+         testCase(2, "The test case description",
+            riskData1(
+               ...optional modifications...),
+            ...);
+*/
+
+/// @brief Aggregates an arbitrary set of callable instances into a single callable object
+/// accepting variadic parameter list (so called "Context") containing actual parameter for the aggregated objects.
+/// The aggregated objects may have differ formal parameter lists.
+template <typename...F>
+decltype(auto) Aggregate(F&&...);
+
+/// @brief Invokes any callable object with parameters taken from the context.
+/// The target method can have a fixed parameter list, variadic parameter lists or both at the time.
+/// If variadic parameter set is present, whole the Context is passed to it in its original order.
+/// Fixed part of actual parameter are also being retrieved from the Context
+/// exercising matching by types of the formal parameters.
+template <typename F, typename...Context>
+decltype(auto) ContextCall(F&&, Context&&...);
+
+/// @brief Captures the Context data and creates a callable object accepting variadic list of callable objects
+/// and applying the ContextCall method for each of them
+template <typename...Context>
+decltype(auto) ContextCallForEach(Context&&...context);
+
+/// @brief Matches a first appropriate object of the Context that could be used for constructing of an object
+/// of the requested type. Raises a compile time error if not found.
+template <typename T, typename...Context>
+decltype(auto) ContextMatch(Context&&...);
+
+/// @brief Make a string representation of input data using the format string.
+/// Produces exactly the same effect as boost::str(boost::format() % ...);
+template <typename...Args>
+std::string Format(const std::string& formatString, Args&&...);
+
+/// @brief Returns string representation of the type.
+template <typename T>
+std::string GetTypeName();
+
+/// @brief Returns string representation of type of the object.
+template <typename T>
+std::string GetTypeName(T&&);
+
 namespace detail
 {
-// Will come with C++17
-template <bool cond, typename type = void> using enable_if_t = typename std::enable_if<cond, type>::type;
-template <typename T> using decay_t = typename std::decay<T>::type;
+using std::forward;
+
+// C++17
+template <bool cond, typename type = void>
+using enable_if_t = typename std::enable_if<cond, type>::type;
+
+// C++17
+template <typename T>
+using decay_t = typename std::decay<T>::type;
 
 template <typename Method> struct MethodSignature;
 
@@ -76,27 +188,35 @@ template <typename Signature, size_t cutSize>
 using TruncatedSignatureType = typename TruncatedSignature<Signature, cutSize>::type;
 
 template <typename T, typename Head, typename...Tail>
-auto Match(Head&&, Tail&&...tail) ->
-enable_if_t<!std::is_convertible<Head, T>::value, decltype(Match<T>(std::forward<Tail>(tail)...))>
+auto contextMatch(Head&&, Tail&&...tail) ->
+enable_if_t<!std::is_constructible<T, Head>::value, decltype(contextMatch<T>(forward<Tail>(tail)...))>
 {
-   return Match<T>(std::forward<Tail>(tail)...);
+   return contextMatch<T>(forward<Tail>(tail)...);
 }
 
 template <typename T, typename Head, typename...Tail>
-enable_if_t<std::is_convertible<Head, T>::value, Head&&> Match(Head&& head, Tail&&...)
+enable_if_t<std::is_constructible<T, Head>::value, Head&&> contextMatch(Head&& head, Tail&&...)
 {
-   return std::forward<Head>(head);
+   return forward<Head>(head);
 }
 
 template <typename T>
-T Match()
+T contextMatch()
 {
    // This point should never be hit in a well-formed program
-   static_assert(false, __FUNCSIG__": The requested type is missing from the actual parameter list");
+   static_assert(false, __FUNCSIG__": The requested type is missing from the actual parameter list.");
 }
 
 template <typename F, typename = void>
-struct ContextCallImpl;
+struct ContextCallImpl
+{
+   template <typename...Context>
+   decltype(auto) operator()(F&&, Context&&...) const
+   {
+      // This point should never be hit in a well-formed program
+      static_assert(false, __FUNCSIG__": A callable instance of unsupported type detected.");
+   }
+};
 
 template <typename R, typename...Args>
 struct ContextCallImpl<R(Args...)>
@@ -104,7 +224,7 @@ struct ContextCallImpl<R(Args...)>
    template <typename F, typename...Context>
    R operator()(F&& f, Context&&...context) const
    {
-      return f(Match<Args>(std::forward<Context>(context)...)...);
+      return f(contextMatch<Args>(forward<Context>(context)...)...);
    }
 };
 
@@ -128,30 +248,99 @@ struct ContextCallImpl<F, enable_if_t<IsVariadicFunctionObject<F>::value>>
    {
       R operator()(F&& f, Context&&...context) const
       {
-         return f(Match<Args>(std::forward<Context>(context)...)..., std::forward<Context>(context)...);
+         return f(contextMatch<Args>(forward<Context>(context)...)..., forward<Context>(context)...);
       }
    };
 
    template <typename...Context>
    decltype(auto) operator()(F&& f, Context&&...context) const
    {
-      auto op = &decay_t<F>::operator()<Context...>;
+      auto op = &decay_t<F>::operator()<Context...>; op;
       using FullSignature = MethodSignatureType<decltype(op)>;
       using Signature = TruncatedSignatureType<FullSignature, sizeof...(Context)>;
-      return Impl<Signature, Context...>()(std::forward<F>(f), std::forward<Context>(context)...);
+      return Impl<Signature, Context...>()(forward<F>(f), forward<Context>(context)...);
    }
+};
+
+} // namespace detail
+
+template <typename...F>
+decltype(auto) Aggregate(F&&...f)
+{
+   using namespace detail;
+   return [&](auto&&...arg)
+   {
+      ContextCallForEach(forward<decltype(arg)>(arg)...)(forward<decltype(f)>(f)...);
+   };
 };
 
 template <typename F, typename...Context>
 decltype(auto) ContextCall(F&& f, Context&&...context)
 {
-   return ContextCallImpl<F>()(std::forward<F>(f), std::forward<Context>(context)...);
+   using namespace detail;
+   return ContextCallImpl<F>()(forward<F>(f), forward<Context>(context)...);
 }
 
-} // namespace detail
+template <typename...Context>
+decltype(auto) ContextCallForEach(Context&&...context)
+{
+   using namespace detail;
+   return [&](auto&&...f)
+   {
+      auto callWrapper = [&](auto&& f)
+      {
+         ContextCall(forward<decltype(f)>(f), forward<decltype(context)>(context)...);
+         return 0;
+      };
+      std::initializer_list<int> { callWrapper(f)... };
+   };
+}
 
-using detail::ContextCall;
-using detail::Match;
+template <typename T, typename...Context>
+decltype(auto) ContextMatch(Context&&...context)
+{
+   using namespace detail;
+   return contextMatch<T>(forward<Context>(context)...);
+}
+
+template <typename Data>
+void Format(std::ostream& output, Data&& data)
+{
+   output << data;
+}
+
+template <typename Data, typename Arg, typename...Args>
+void Format(std::ostream& output, Data&& data, Arg&& arg, Args&&...args)
+{
+   Format(output, data % arg, forward<Args>(args)...);
+}
+
+template <typename...Args>
+std::string Format(const std::string& formatString, Args&&...args)
+{
+   using namespace detail;
+   std::ostringstream output;
+   Format(output, boost::format(formatString), forward<Args>(args)...);
+   return output.str();
+}
+
+template <typename T>
+std::string GetTypeName()
+{
+   using namespace detail;
+   std::ostringstream output;
+   output << __FUNCSIG__;
+   auto&& str = output.str();
+   auto begin = str.find(__FUNCTION__) + std::string(__FUNCTION__).size() + 1;
+   auto end = str.find_last_of('>');
+   return str.substr(begin, end - begin);
+}
+
+template <typename T>
+std::string GetTypeName(T&&)
+{
+   return GetTypeName<T>();
+}
 
 } // namespace TestScenarioTools
 } // namespace TestFramework
