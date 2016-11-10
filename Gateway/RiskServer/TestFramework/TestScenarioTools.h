@@ -214,7 +214,7 @@ struct ContextCallImpl
    decltype(auto) operator()(F&&, Context&&...) const
    {
       // This point should never be hit in a well-formed program
-      static_assert(false, __FUNCSIG__": A callable instance of unsupported type detected.");
+      static_assert(false, "A callable instance of unsupported type was detected: " __FUNCSIG__);
    }
 };
 
