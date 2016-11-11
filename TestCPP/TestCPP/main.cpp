@@ -86,6 +86,7 @@ void TestContextMatch()
    PRINT(ContextMatch<std::string>("Hello, World!", 3.14, size_t(42), ""));
    PRINT(ContextGet<1>("Hello, World!", 3.14, size_t(42), ""));
    PRINT((intptr_t)ContextMatch<class C*>("Hello, World!", 3.14, size_t(42), "", nullptr));
+   //ContextMatch<double&>(3.14); // error C2338: The requested type is missing from the actual parameter list
 }
 
 void TestGetTypeName()
