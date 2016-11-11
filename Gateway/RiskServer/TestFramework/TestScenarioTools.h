@@ -196,23 +196,18 @@ struct TruncatedSignature<R(Args...), cutSize> : TruncatedSignatureImpl<R(Args..
 template <typename Signature, size_t cutSize>
 using TruncatedSignatureType = typename TruncatedSignature<Signature, cutSize>::type;
 
-template <typename T, typename...Context> struct IsAnyCastAvailable;
-template <typename T> struct IsAnyCastAvailable<T> : std::false_type { };
-template <typename T, typename Context> struct IsAnyCastAvailable<T, Context>
-: std::is_constructible<T, Context&&> { };
+template <typename T, typename Context, typename = void>
+struct ContextCast
+{
+   static constexpr bool available = std::is_constructible<T, Context&&>::value;
+   static constexpr bool exact = available && std::is_same<decay_t<T>, decay_t<Context>>::value;
+   static constexpr bool conversion = available && !exact;
 
-template <typename T, typename...Context> struct IsExactCastAvailable;
-template <typename T> struct IsExactCastAvailable<T> : std::false_type { };
-template <typename T, typename Context> struct IsExactCastAvailable<T, Context> : std::integral_constant<bool,
-   IsAnyCastAvailable<T, Context>::value &&
-   std::is_same<decay_t<T>, decay_t<Context>>::value> { };
-
-template <typename T, typename...Context> struct IsInexactCastAvailable;
-template <typename T> struct IsInexactCastAvailable<T> : std::false_type { };
-template <typename T, typename Context> struct IsInexactCastAvailable<T, Context>
-: std::integral_constant<bool,
-   IsAnyCastAvailable<T, Context>::value &&
-   !std::is_same<decay_t<T>, decay_t<Context>>::value> { };
+   Context&& operator()(Context&& context) const
+   {
+      return std::forward<Context>(context);
+   }
+};
 
 template <typename T, typename NoMatches, typename Inexact, typename NoExact, typename Tail, typename = void>
 struct ContextMatchImpl { };
@@ -222,28 +217,28 @@ using ContextMatchFacade = ContextMatchImpl<T, std::tuple<>, std::tuple<>, std::
 
 template <typename T, typename...NoMatches, typename Next, typename...Tail>
 struct ContextMatchImpl<T, std::tuple<NoMatches...>, std::tuple<>, std::tuple<>, std::tuple<Next, Tail...>,
-enable_if_t<!IsAnyCastAvailable<T, Next>::value>>
+enable_if_t<!ContextCast<T, Next>::available>>
 : ContextMatchImpl<T, std::tuple<NoMatches..., Next>, std::tuple<>, std::tuple<>, std::tuple<Tail...>> { };
 
 template <typename T, typename...NoMatches, typename Next, typename...Tail>
 struct ContextMatchImpl<T, std::tuple<NoMatches...>, std::tuple<>, std::tuple<>, std::tuple<Next, Tail...>,
-enable_if_t<IsInexactCastAvailable<T, Next>::value>>
+enable_if_t<ContextCast<T, Next>::conversion>>
 : ContextMatchImpl<T, std::tuple<NoMatches...>, std::tuple<Next>, std::tuple<>, std::tuple<Tail...>> { };
 
 template <typename T, typename...NoMatches, typename Inexact, typename...NoExact, typename Next, typename...Tail>
 struct ContextMatchImpl<T, std::tuple<NoMatches...>, std::tuple<Inexact>, std::tuple<NoExact...>, std::tuple<Next, Tail...>,
-enable_if_t<!IsExactCastAvailable<T, Next>::value>>
+enable_if_t<!ContextCast<T, Next>::exact>>
 : ContextMatchImpl<T, std::tuple<NoMatches...>, std::tuple<Inexact>, std::tuple<NoExact..., Next>, std::tuple<Tail...>> { };
 
 // Exact type match
 template <typename T, typename...NoMatches, typename...Inexact, typename...NoExact, typename Exact, typename...Tail>
 struct ContextMatchImpl<T, std::tuple<NoMatches...>, std::tuple<Inexact...>, std::tuple<NoExact...>, std::tuple<Exact, Tail...>,
-enable_if_t<IsExactCastAvailable<T, Exact>::value>>
+enable_if_t<ContextCast<T, Exact>::exact>>
 : std::enable_if<true>
 {
-   Exact&& operator()(NoMatches&&..., Inexact&&..., NoExact&&..., Exact&& exact, Tail&&...) const
+   decltype(auto) operator()(NoMatches&&..., Inexact&&..., NoExact&&..., Exact&& exact, Tail&&...) const
    {
-      return std::forward<Exact>(exact);
+      return ContextCast<T, Exact>()(std::forward<Exact>(exact));
    }
 };
 
@@ -252,9 +247,9 @@ template <typename T, typename...NoMatches, typename Inexact, typename...NoExact
 struct ContextMatchImpl<T, std::tuple<NoMatches...>, std::tuple<Inexact>, std::tuple<NoExact...>, std::tuple<>>
 : std::enable_if<true>
 {
-   Inexact&& operator()(NoMatches&&..., Inexact&& inexact, NoExact&&...) const
+   decltype(auto) operator()(NoMatches&&..., Inexact&& inexact, NoExact&&...) const
    {
-      return std::forward<Inexact>(inexact);
+      return ContextCast<T, Inexact>()(std::forward<Inexact>(inexact));
    }
 };
 
