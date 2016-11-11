@@ -130,8 +130,6 @@ std::string GetTypeName(T&&);
 
 namespace detail
 {
-using std::tuple;
-
 // C++17
 template <bool cond, typename type = void>
 using enable_if_t = typename std::enable_if<cond, type>::type;
@@ -214,26 +212,26 @@ template <typename T, typename NoMatches, typename Inexact, typename NoExact, ty
 struct ContextMatchImpl;
 
 template <typename T, typename...Context>
-using ContextMatchFacade = ContextMatchImpl<T, tuple<>, tuple<>, tuple<>, tuple<Context...>>;
+using ContextMatchFacade = ContextMatchImpl<T, std::tuple<>, std::tuple<>, std::tuple<>, std::tuple<Context...>>;
 
 template <typename T, typename...NoMatches, typename Next, typename...Tail>
-struct ContextMatchImpl<T, tuple<NoMatches...>, tuple<>, tuple<>, tuple<Next, Tail...>,
+struct ContextMatchImpl<T, std::tuple<NoMatches...>, std::tuple<>, std::tuple<>, std::tuple<Next, Tail...>,
 enable_if_t<!IsAnyCastAvailable<T, Next>::value>>
-: ContextMatchImpl<T, tuple<NoMatches..., Next>, tuple<>, tuple<>, tuple<Tail...>> { };
+: ContextMatchImpl<T, std::tuple<NoMatches..., Next>, std::tuple<>, std::tuple<>, std::tuple<Tail...>> { };
 
 template <typename T, typename...NoMatches, typename Next, typename...Tail>
-struct ContextMatchImpl<T, tuple<NoMatches...>, tuple<>, tuple<>, tuple<Next, Tail...>,
+struct ContextMatchImpl<T, std::tuple<NoMatches...>, std::tuple<>, std::tuple<>, std::tuple<Next, Tail...>,
 enable_if_t<IsInexactCastAvailable<T, Next>::value>>
-: ContextMatchImpl<T, tuple<NoMatches...>, tuple<Next>, tuple<>, tuple<Tail...>> { };
+: ContextMatchImpl<T, std::tuple<NoMatches...>, std::tuple<Next>, std::tuple<>, std::tuple<Tail...>> { };
 
 template <typename T, typename...NoMatches, typename Inexact, typename...NoExact, typename Next, typename...Tail>
-struct ContextMatchImpl<T, tuple<NoMatches...>, tuple<Inexact>, tuple<NoExact...>, tuple<Next, Tail...>,
+struct ContextMatchImpl<T, std::tuple<NoMatches...>, std::tuple<Inexact>, std::tuple<NoExact...>, std::tuple<Next, Tail...>,
 enable_if_t<!IsExactCastAvailable<T, Next>::value>>
-: ContextMatchImpl<T, tuple<NoMatches...>, tuple<Inexact>, tuple<NoExact..., Next>, tuple<Tail...>> { };
+: ContextMatchImpl<T, std::tuple<NoMatches...>, std::tuple<Inexact>, std::tuple<NoExact..., Next>, std::tuple<Tail...>> { };
 
 // Exact type match
 template <typename T, typename...NoMatches, typename...Inexact, typename...NoExact, typename Exact, typename...Tail>
-struct ContextMatchImpl<T, tuple<NoMatches...>, tuple<Inexact...>, tuple<NoExact...>, tuple<Exact, Tail...>,
+struct ContextMatchImpl<T, std::tuple<NoMatches...>, std::tuple<Inexact...>, std::tuple<NoExact...>, std::tuple<Exact, Tail...>,
 enable_if_t<IsExactCastAvailable<T, Exact>::value>>
 {
    Exact&& operator()(NoMatches&&..., Inexact&&..., NoExact&&..., Exact&& exact, Tail&&...) const
@@ -244,7 +242,7 @@ enable_if_t<IsExactCastAvailable<T, Exact>::value>>
 
 // Inexact type match
 template <typename T, typename...NoMatches, typename Inexact, typename...NoExact>
-struct ContextMatchImpl<T, tuple<NoMatches...>, tuple<Inexact>, tuple<NoExact...>, tuple<>>
+struct ContextMatchImpl<T, std::tuple<NoMatches...>, std::tuple<Inexact>, std::tuple<NoExact...>, std::tuple<>>
 {
    Inexact&& operator()(NoMatches&&..., Inexact&& inexact, NoExact&&...) const
    {
@@ -254,7 +252,7 @@ struct ContextMatchImpl<T, tuple<NoMatches...>, tuple<Inexact>, tuple<NoExact...
 
 // No matches
 template <typename T, typename...NoMatches>
-struct ContextMatchImpl<T, tuple<NoMatches...>, tuple<>, tuple<>, tuple<>>
+struct ContextMatchImpl<T, std::tuple<NoMatches...>, std::tuple<>, std::tuple<>, std::tuple<>>
 {
    T&& operator()(NoMatches&&...) const
    {
@@ -357,7 +355,7 @@ decltype(auto) ContextGet(Context&&...context)
 {
    static_assert(index < sizeof...(Context), "Actual parameter index is out of range: " __FUNCSIG__);
    using namespace detail;
-   return std::get<index>(tuple<Context&&...>(std::forward<Context>(context)...));
+   return std::get<index>(std::tuple<Context&&...>(std::forward<Context>(context)...));
 }
 
 template <typename T, typename...Context>
