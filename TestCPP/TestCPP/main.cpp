@@ -29,9 +29,10 @@ int main()
    TEST(TestGetTypeName);
 }
 
+#if 10
 void TestContextCall()
 {
-   auto l2 = [](int i, short&& r, double d, auto&&...context) { PRINT(i), PRINT(r); PRINT(d); PRINT(sizeof...(context)); };
+   auto l2 = [](int i, short&& r, double d, /*auto&&,*/ auto&&...context) { PRINT(i), PRINT(r); PRINT(d); PRINT(sizeof...(context)); };
    short s = 2;
    ContextCall(l2, "Hello", 42, 3.14, s);
 
@@ -50,7 +51,6 @@ void TestContextCall()
    ContextCall(&foo, 42);
 }
 
-#if 10
 void TestTruncatedSignatureType()
 {
    PRINT((GetTypeName<detail::TruncatedSignatureType<int(double, short, bool), 0>>()));

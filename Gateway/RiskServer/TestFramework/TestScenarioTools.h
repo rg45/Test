@@ -258,58 +258,56 @@ struct ContextMatchImpl<T, std::tuple<NoMatches...>, std::tuple<Inexact>, std::t
    }
 };
 
-template <typename F, typename = void>
-struct ContextCallImpl
+template <typename F, typename Context, typename = void>
+struct ContextCallImpl { };
+
+template <typename F, typename...Context>
+using ContextCallFacade = ContextCallImpl<F, std::tuple<Context...>>;
+
+template <typename R, typename...Args, typename Context>
+struct ContextCallImpl<R(*)(Args...), Context> : ContextCallImpl<R(Args...), Context> { };
+
+template <typename R, typename...Args, typename Context>
+struct ContextCallImpl<R(&)(Args...), Context> : ContextCallImpl<R(Args...), Context> { };
+
+template <typename F, typename Context>
+struct ContextCallImpl<F, Context, enable_if_t<IsNonTemplatedFunctionObject<F>::value>>
+: ContextCallImpl<MethodSignatureType<decltype(&decay_t<F>::operator())>, Context> { };
+
+template <typename R, typename...Args, typename...Context>
+struct ContextCallImpl<R(Args...), std::tuple<Context...>>
+: std::enable_if<true>
 {
-   template <typename...Context>
-   decltype(auto) operator()(F&&, Context&&...) const
-   {
-      // This point should never be hit in a well-formed program
-      static_assert(false, "A callable instance of unsupported type was detected: " __FUNCSIG__);
-   }
-};
-
-template <typename R, typename...Args>
-struct ContextCallImpl<R(*)(Args...)> : ContextCallImpl<R(Args...)> { };
-
-template <typename R, typename...Args>
-struct ContextCallImpl<R(&)(Args...)> : ContextCallImpl<R(Args...)> { };
-
-template <typename F>
-struct ContextCallImpl<F, enable_if_t<IsNonTemplatedFunctionObject<F>::value>>
-: ContextCallImpl<MethodSignatureType<decltype(&decay_t<F>::operator())>> { };
-
-template <typename R, typename...Args>
-struct ContextCallImpl<R(Args...)>
-{
-   template <typename F, typename...Context>
+   template <typename F>
    R operator()(F&& f, Context&&...context) const
    {
       return f(ContextMatch<Args>(std::forward<Context>(context)...)...);
    }
 };
 
-/// @brief Implementation class of context call for variadic function objects (including variadic lambdas)
-template <typename F>
-struct ContextCallImpl<F, enable_if_t<IsVariadicFunctionObject<F>::value>>
+template <typename F, typename...Context>
+constexpr decltype(&decay_t<F>::operator()<Context...>) variadicObjectOperator()
 {
-   template <typename Signature, typename...Context> struct Impl;
-   template <typename R, typename...Args, typename...Context>
-   struct Impl<R(Args...), Context...>
-   {
-      R operator()(F&& f, Context&&...context) const
-      {
-         return f(ContextMatch<Args>(std::forward<Context>(context)...)..., std::forward<Context>(context)...);
-      }
-   };
+   return &decay_t<F>::operator() < Context... > ;
+}
 
-   template <typename...Context>
-   decltype(auto) operator()(F&& f, Context&&...context) const
+template <typename F, typename...Context>
+using VariadicObjectSignature = TruncatedSignatureType<MethodSignatureType<
+   decltype(variadicObjectOperator<F, Context...>())>, sizeof...(Context)>;
+
+template <typename Signature, typename...Context> struct ContextCallImplVariadic;
+template <typename F, typename...Context>
+struct ContextCallImpl<F, std::tuple<Context...>, enable_if_t<IsVariadicFunctionObject<F>::value>>
+: ContextCallImplVariadic<VariadicObjectSignature<F, Context...>, Context...> { };
+
+template <typename R, typename...Args, typename...Context>
+struct ContextCallImplVariadic<R(Args...), Context...>
+: std::enable_if<true>
+{
+   template <typename F>
+   R operator()(F&& f, Context&&...context) const
    {
-      auto op = &decay_t<F>::operator()<Context...>; op;
-      using FullSignature = MethodSignatureType<decltype(op)>;
-      using Signature = TruncatedSignatureType<FullSignature, sizeof...(Context)>;
-      return Impl<Signature, Context...>()(std::forward<F>(f), std::forward<Context>(context)...);
+      return f(ContextMatch<Args>(std::forward<Context>(context)...)..., std::forward<Context>(context)...);
    }
 };
 
@@ -329,7 +327,11 @@ template <typename F, typename...Context>
 decltype(auto) ContextCall(F&& f, Context&&...context)
 {
    using namespace detail;
-   return ContextCallImpl<F>()(std::forward<F>(f), std::forward<Context>(context)...);
+
+   static_assert(IsEnabled<ContextCallFacade<F, Context...>>::value,
+      "A callable instance of unsupported type in " __FUNCSIG__);
+
+   return ContextCallFacade<F, Context...>()(std::forward<F>(f), std::forward<Context>(context)...);
 }
 
 template <typename...Context>
