@@ -138,6 +138,12 @@ using enable_if_t = typename std::enable_if<cond, type>::type;
 template <typename T>
 using decay_t = typename std::decay<T>::type;
 
+template <typename T, typename = void>
+struct IsEnabled : std::false_type { };
+
+template <typename T>
+struct IsEnabled<T, typename T::type> : std::true_type { };
+
 template <typename Method> struct MethodSignature;
 
 template <typename R, typename...Args>
@@ -209,7 +215,7 @@ template <typename T, typename Context> struct IsInexactCastAvailable<T, Context
    !std::is_same<decay_t<T>, decay_t<Context>>::value> { };
 
 template <typename T, typename NoMatches, typename Inexact, typename NoExact, typename Tail, typename = void>
-struct ContextMatchImpl;
+struct ContextMatchImpl { };
 
 template <typename T, typename...Context>
 using ContextMatchFacade = ContextMatchImpl<T, std::tuple<>, std::tuple<>, std::tuple<>, std::tuple<Context...>>;
@@ -233,6 +239,7 @@ enable_if_t<!IsExactCastAvailable<T, Next>::value>>
 template <typename T, typename...NoMatches, typename...Inexact, typename...NoExact, typename Exact, typename...Tail>
 struct ContextMatchImpl<T, std::tuple<NoMatches...>, std::tuple<Inexact...>, std::tuple<NoExact...>, std::tuple<Exact, Tail...>,
 enable_if_t<IsExactCastAvailable<T, Exact>::value>>
+: std::enable_if<true>
 {
    Exact&& operator()(NoMatches&&..., Inexact&&..., NoExact&&..., Exact&& exact, Tail&&...) const
    {
@@ -243,21 +250,11 @@ enable_if_t<IsExactCastAvailable<T, Exact>::value>>
 // Inexact type match
 template <typename T, typename...NoMatches, typename Inexact, typename...NoExact>
 struct ContextMatchImpl<T, std::tuple<NoMatches...>, std::tuple<Inexact>, std::tuple<NoExact...>, std::tuple<>>
+: std::enable_if<true>
 {
    Inexact&& operator()(NoMatches&&..., Inexact&& inexact, NoExact&&...) const
    {
       return std::forward<Inexact>(inexact);
-   }
-};
-
-// No matches
-template <typename T, typename...NoMatches>
-struct ContextMatchImpl<T, std::tuple<NoMatches...>, std::tuple<>, std::tuple<>, std::tuple<>>
-{
-   T&& operator()(NoMatches&&...) const
-   {
-      // This point should never be hit in a well-formed program
-      static_assert(false, "The requested type is missing from the actual parameter list: " __FUNCSIG__);
    }
 };
 
@@ -273,16 +270,6 @@ struct ContextCallImpl
 };
 
 template <typename R, typename...Args>
-struct ContextCallImpl<R(Args...)>
-{
-   template <typename F, typename...Context>
-   R operator()(F&& f, Context&&...context) const
-   {
-      return f(ContextMatch<Args>(std::forward<Context>(context)...)...);
-   }
-};
-
-template <typename R, typename...Args>
 struct ContextCallImpl<R(*)(Args...)> : ContextCallImpl<R(Args...)> { };
 
 template <typename R, typename...Args>
@@ -291,6 +278,16 @@ struct ContextCallImpl<R(&)(Args...)> : ContextCallImpl<R(Args...)> { };
 template <typename F>
 struct ContextCallImpl<F, enable_if_t<IsNonTemplatedFunctionObject<F>::value>>
 : ContextCallImpl<MethodSignatureType<decltype(&decay_t<F>::operator())>> { };
+
+template <typename R, typename...Args>
+struct ContextCallImpl<R(Args...)>
+{
+   template <typename F, typename...Context>
+   R operator()(F&& f, Context&&...context) const
+   {
+      return f(ContextMatch<Args>(std::forward<Context>(context)...)...);
+   }
+};
 
 /// @brief Implementation class of context call for variadic function objects (including variadic lambdas)
 template <typename F>
@@ -353,8 +350,8 @@ decltype(auto) ContextCallForEach(Context&&...context)
 template <size_t index, typename...Context>
 decltype(auto) ContextGet(Context&&...context)
 {
-   static_assert(index < sizeof...(Context), "Actual parameter index is out of range: " __FUNCSIG__);
    using namespace detail;
+   static_assert(index < sizeof...(Context), "Actual parameter index is out of range: " __FUNCSIG__);
    return std::get<index>(std::tuple<Context&&...>(std::forward<Context>(context)...));
 }
 
@@ -362,6 +359,10 @@ template <typename T, typename...Context>
 decltype(auto) ContextMatch(Context&&...context)
 {
    using namespace detail;
+
+   static_assert(IsEnabled<ContextMatchFacade<T, Context...>>::value,
+      "The requested type is missing from the actual parameter list: " __FUNCSIG__);
+
    return ContextMatchFacade<T, Context...>()(std::forward<Context>(context)...);
 }
 
