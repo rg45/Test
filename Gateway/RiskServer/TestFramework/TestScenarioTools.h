@@ -130,7 +130,6 @@ std::string GetTypeName(T&&);
 
 namespace detail
 {
-using std::forward;
 using std::tuple;
 
 // C++17
@@ -239,7 +238,7 @@ enable_if_t<IsExactCastAvailable<T, Exact>::value>>
 {
    Exact&& operator()(NoMatches&&..., Inexact&&..., NoExact&&..., Exact&& exact, Tail&&...) const
    {
-      return forward<Exact>(exact);
+      return std::forward<Exact>(exact);
    }
 };
 
@@ -249,7 +248,7 @@ struct ContextMatchImpl<T, tuple<NoMatches...>, tuple<Inexact>, tuple<NoExact...
 {
    Inexact&& operator()(NoMatches&&..., Inexact&& inexact, NoExact&&...) const
    {
-      return forward<Inexact>(inexact);
+      return std::forward<Inexact>(inexact);
    }
 };
 
@@ -281,7 +280,7 @@ struct ContextCallImpl<R(Args...)>
    template <typename F, typename...Context>
    R operator()(F&& f, Context&&...context) const
    {
-      return f(ContextMatch<Args>(forward<Context>(context)...)...);
+      return f(ContextMatch<Args>(std::forward<Context>(context)...)...);
    }
 };
 
@@ -305,7 +304,7 @@ struct ContextCallImpl<F, enable_if_t<IsVariadicFunctionObject<F>::value>>
    {
       R operator()(F&& f, Context&&...context) const
       {
-         return f(ContextMatch<Args>(forward<Context>(context)...)..., forward<Context>(context)...);
+         return f(ContextMatch<Args>(std::forward<Context>(context)...)..., std::forward<Context>(context)...);
       }
    };
 
@@ -315,7 +314,7 @@ struct ContextCallImpl<F, enable_if_t<IsVariadicFunctionObject<F>::value>>
       auto op = &decay_t<F>::operator()<Context...>; op;
       using FullSignature = MethodSignatureType<decltype(op)>;
       using Signature = TruncatedSignatureType<FullSignature, sizeof...(Context)>;
-      return Impl<Signature, Context...>()(forward<F>(f), forward<Context>(context)...);
+      return Impl<Signature, Context...>()(std::forward<F>(f), std::forward<Context>(context)...);
    }
 };
 
@@ -327,7 +326,7 @@ decltype(auto) Aggregate(F&&...f)
    using namespace detail;
    return [&](auto&&...arg)
    {
-      ContextCallForEach(forward<decltype(arg)>(arg)...)(forward<decltype(f)>(f)...);
+      ContextCallForEach(std::forward<decltype(arg)>(arg)...)(std::forward<decltype(f)>(f)...);
    };
 };
 
@@ -335,7 +334,7 @@ template <typename F, typename...Context>
 decltype(auto) ContextCall(F&& f, Context&&...context)
 {
    using namespace detail;
-   return ContextCallImpl<F>()(forward<F>(f), forward<Context>(context)...);
+   return ContextCallImpl<F>()(std::forward<F>(f), std::forward<Context>(context)...);
 }
 
 template <typename...Context>
@@ -346,10 +345,10 @@ decltype(auto) ContextCallForEach(Context&&...context)
    {
       auto callWrapper = [&](auto&& f)
       {
-         ContextCall(forward<decltype(f)>(f), forward<decltype(context)>(context)...);
+         ContextCall(std::forward<decltype(f)>(f), std::forward<decltype(context)>(context)...);
          return 0;
       };
-      std::initializer_list<int> { callWrapper(forward<decltype(f)>(f))... };
+      std::initializer_list<int> { callWrapper(std::forward<decltype(f)>(f))... };
    };
 }
 
@@ -358,14 +357,14 @@ decltype(auto) ContextGet(Context&&...context)
 {
    static_assert(index < sizeof...(Context), "Actual parameter index is out of range: " __FUNCSIG__);
    using namespace detail;
-   return std::get<index>(tuple<Context&&...>(forward<Context>(context)...));
+   return std::get<index>(tuple<Context&&...>(std::forward<Context>(context)...));
 }
 
 template <typename T, typename...Context>
 decltype(auto) ContextMatch(Context&&...context)
 {
    using namespace detail;
-   return ContextMatchFacade<T, Context...>()(forward<Context>(context)...);
+   return ContextMatchFacade<T, Context...>()(std::forward<Context>(context)...);
 }
 
 template <typename Data>
@@ -377,7 +376,7 @@ void Format(std::ostream& output, Data&& data)
 template <typename Data, typename Arg, typename...Args>
 void Format(std::ostream& output, Data&& data, Arg&& arg, Args&&...args)
 {
-   Format(output, data % arg, forward<Args>(args)...);
+   Format(output, data % arg, std::forward<Args>(args)...);
 }
 
 template <typename...Args>
@@ -385,7 +384,7 @@ std::string Format(const std::string& formatString, Args&&...args)
 {
    using namespace detail;
    std::ostringstream output;
-   Format(output, boost::format(formatString), forward<Args>(args)...);
+   Format(output, boost::format(formatString), std::forward<Args>(args)...);
    return output.str();
 }
 
