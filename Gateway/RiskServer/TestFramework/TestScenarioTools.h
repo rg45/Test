@@ -259,15 +259,10 @@ struct ContextMatchImpl<T, std::tuple<NoMatches...>, std::tuple<Inexact>, std::t
 };
 
 template <typename F, typename = void>
-struct ContextCallImpl
-{
-   template <typename...Context>
-   decltype(auto) operator()(F&&, Context&&...) const
-   {
-      // This point should never be hit in a well-formed program
-      static_assert(false, "A callable instance of unsupported type was detected: " __FUNCSIG__);
-   }
-};
+struct ContextCallImpl { };
+
+template <typename F, typename...Context>
+using ContextCallFacade = ContextCallImpl<F>;
 
 template <typename R, typename...Args>
 struct ContextCallImpl<R(*)(Args...)> : ContextCallImpl<R(Args...)> { };
@@ -281,6 +276,7 @@ struct ContextCallImpl<F, enable_if_t<IsNonTemplatedFunctionObject<F>::value>>
 
 template <typename R, typename...Args>
 struct ContextCallImpl<R(Args...)>
+: std::enable_if<true>
 {
    template <typename F, typename...Context>
    R operator()(F&& f, Context&&...context) const
@@ -292,6 +288,7 @@ struct ContextCallImpl<R(Args...)>
 /// @brief Implementation class of context call for variadic function objects (including variadic lambdas)
 template <typename F>
 struct ContextCallImpl<F, enable_if_t<IsVariadicFunctionObject<F>::value>>
+: std::enable_if<true>
 {
    template <typename Signature, typename...Context> struct Impl;
    template <typename R, typename...Args, typename...Context>
@@ -329,7 +326,11 @@ template <typename F, typename...Context>
 decltype(auto) ContextCall(F&& f, Context&&...context)
 {
    using namespace detail;
-   return ContextCallImpl<F>()(std::forward<F>(f), std::forward<Context>(context)...);
+
+   static_assert(IsEnabled<ContextCallFacade<F, Context...>>::value,
+      "A callable instance of unsupported type: " __FUNCSIG__);
+
+   return ContextCallFacade<F, Context...>()(std::forward<F>(f), std::forward<Context>(context)...);
 }
 
 template <typename...Context>
