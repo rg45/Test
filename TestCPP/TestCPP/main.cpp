@@ -18,15 +18,103 @@ using namespace cqg::RS::TestFramework::TestScenarioTools;
 
 void foo(int value) { PRINT(value); }
 
+template <typename T> using Type = typename T::type;
+
+template <typename T, typename C>
+using IsAnyCastAvailable = std::is_convertible<C, T>;
+
+template <typename T, typename C>
+struct IsValueCastAvailable
+{
+   struct ImplicitConvertible { operator C&& (); };
+   static constexpr bool value = std::is_convertible<ImplicitConvertible, T>::value;
+};
+
+template <typename T, typename C>
+struct IsReferenceCastAvailable
+{
+   template <typename T> using Pointer = Type<std::add_pointer<Type<std::decay<T>>>>;
+   static constexpr bool value = std::is_convertible<Pointer<C>, Pointer<T>>::value
+      && IsAnyCastAvailable<T, C>::value;
+};
+
+template <typename T, typename C>
+struct IsExactCastAvailable
+{
+   template <typename U>
+   static std::false_type test(U&&);
+   static std::true_type test(T);
+   static constexpr bool value = decltype(test(std::declval<C>()))::value;
+};
+
+enum class ContextCastPriority
+{
+   none = 0,
+   custom = 1,
+   value = 2,
+   reference = 3,
+   exact = 4
+};
+
+template <typename T, typename C, typename = void>
+struct ContextCast
+{
+   static constexpr auto priority = ContextCastPriority::none;
+   T&& operator()(C&&) const { static_assert(false, "Illegal type cast in " __FUNCSIG__); }
+};
+
+template <bool c>
+using enable_if_t = typename std::enable_if<c>::type;
+
+template <typename T, typename C>
+struct ContextCast<T, C, enable_if_t<
+   IsAnyCastAvailable<T, C>::value &&
+   !IsReferenceCastAvailable<T, C>::value>>
+{
+   static constexpr auto priority = IsValueCastAvailable<C,T>::value ?
+      ContextCastPriority::value : ContextCastPriority::custom;
+
+   T operator()(C&& c) const { return T(std::forward<C>(c)); }
+};
+
+template <typename T, typename C>
+struct ContextCast<T, C, enable_if_t<
+   IsReferenceCastAvailable<T, C>::value ||
+   IsExactCastAvailable<T, C>::value>>
+{
+   static constexpr auto priority = IsExactCastAvailable<C, T>::value ?
+      ContextCastPriority::exact : ContextCastPriority::reference;
+
+   C&& operator()(C&& c) const { return std::forward<C>(c); }
+};
+
+template <typename T, typename C>
+void printConversionTraits()
+{
+   std::cout << Format("\"%1%\" -> \"%2%\":", GetTypeName<C>(), GetTypeName<T>()) << std::endl;
+   PRINT((IsAnyCastAvailable<T, C>::value));
+   PRINT((IsValueCastAvailable<T, C>::value));
+   PRINT((IsReferenceCastAvailable<T, C>::value));
+   PRINT((IsExactCastAvailable<T, C>::value));
+};
+
+struct B { };
+struct D : B { };
+
 int main()
 {
    std::cout << std::boolalpha;
 
-   TEST(TestContextCall);
-   TEST(TestTruncatedSignatureType);
-   TEST(TestFunctionObjectKindDetection);
-   TEST(TestContextMatch);
-   TEST(TestGetTypeName);
+   //int i;
+   PRINT((ContextCast<const double&, int>()(42)));
+   //printConversionTraits<double&, const double>();
+
+
+//   TEST(TestContextCall);
+//   TEST(TestTruncatedSignatureType);
+//   TEST(TestFunctionObjectKindDetection);
+//   TEST(TestContextMatch);
+//   TEST(TestGetTypeName);
 }
 
 #if 10
