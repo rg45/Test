@@ -357,8 +357,7 @@ decltype(auto) ContextMatch(Context&&...context)
 {
    using namespace detail;
 
-   static_assert(IsEnabled<ContextMatchFacade<T, Context...>>::value,
-      "The requested type is missing from the actual parameter list: " __FUNCSIG__);
+   static_assert(IsEnabled<ContextMatchFacade<T, Context...>>::value, "Context match failed: " __FUNCSIG__);
 
    return ContextMatchFacade<T, Context...>()(std::forward<Context>(context)...);
 }
