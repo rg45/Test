@@ -18,69 +18,19 @@ using namespace cqg::RS::TestFramework::TestScenarioTools;
 
 void foo(int value) { PRINT(value); }
 
-namespace detail2
-{
-using detail::decay_t;
-using detail::enable_if_t;
-using detail::IsEnabled;
-
-} // namespace detail2
-
-template <typename T, typename C>
-void printConversionTraits()
-{
-   using namespace detail2;
-   std::cout << Format("\"%1%\" -> \"%2%\":", GetTypeName<C>(), GetTypeName<T>()) << std::endl;
-   PRINT((IsAnyCastAvailable<T, C>::value));
-   PRINT((IsValueCastAvailable<T, C>::value));
-   PRINT((IsReferenceCastAvailable<T, C>::value));
-   PRINT((IsExactCastAvailable<T, C>::value));
-};
-
-struct B { virtual std::string foo() const { return __FUNCSIG__; } };
-struct D : B { virtual std::string foo() const { return __FUNCSIG__; } };
-
 int main()
 {
    std::cout << std::boolalpha;
 
-   using namespace detail2;
-
-   //double&& x = 2.71;
-   {
-      const B* x = ContextMatch<const D*>(95., true, 'R', 'U', "Hi!", short(1), B(), D());
-      PRINT(intptr_t(x));
-      PRINT(x->foo());
-   }
-   {
-      const char* x = ContextMatch<const char*>(95., true, 0., 'R', 'U', 0., 42, "Hi!", short(1));
-      if (x) PRINT(x); else PRINT(intptr_t(x));
-   }
-   {
-      const char* x = ContextMatch<const char*>(nullptr);
-      if (x) PRINT(x); else PRINT(intptr_t(x));
-      PRINT(GetTypeName<decltype(x)>());
-   }
-
-
-//   {
-//      int&& i = 42;
-//      PRINT((ContextCast<const double&>(i)));
-//      //printConversionTraits<double&, const double>();
-//   }
-//
-//   struct A { using type_ = A; };
-//   PRINT(IsEnabled<A>::value);
-
-
-//   TEST(TestContextCall);
-//   TEST(TestTruncatedSignatureType);
-//   TEST(TestFunctionObjectKindDetection);
-//   TEST(TestContextMatch);
-//   TEST(TestGetTypeName);
+   TEST(TestContextCall);
+   TEST(TestTruncatedSignatureType);
+   TEST(TestFunctionObjectKindDetection);
+   TEST(TestContextMatch);
+   TEST(TestGetTypeName);
 }
 
 #if 10
+
 void TestContextCall()
 {
    auto l2 = [](int i, short&& r, double d, /*auto&&,*/ auto&&...context) { PRINT(i), PRINT(r); PRINT(d); PRINT(sizeof...(context)); };
@@ -108,7 +58,7 @@ void TestTruncatedSignatureType()
    PRINT((GetTypeName<detail::TruncatedSignatureType<int(double, short, bool), 1>>()));
    PRINT((GetTypeName<detail::TruncatedSignatureType<int(double, short, bool), 2>>()));
    PRINT((GetTypeName<detail::TruncatedSignatureType<int(double, short, bool), 3>>()));
-   //PRINT((GetTypeName<detail::TruncatedSignatureType<int(double, short, bool), 4>>()));
+//   PRINT((GetTypeName<detail::TruncatedSignatureType<int(double, short, bool), 4>>()));
 }
 
 void TestFunctionObjectKindDetection()
@@ -127,17 +77,56 @@ void TestFunctionObjectKindDetection()
    PRINT(detail::IsNonTemplatedFunctionObject<decltype(l1)>::value);
 }
 
+template <typename T, typename C>
+void printConversionTraits()
+{
+   using namespace detail2;
+   std::cout << Format("\"%1%\" -> \"%2%\":", GetTypeName<C>(), GetTypeName<T>()) << std::endl;
+   PRINT((IsAnyCastAvailable<T, C>::value));
+   PRINT((IsValueCastAvailable<T, C>::value));
+   PRINT((IsReferenceCastAvailable<T, C>::value));
+   PRINT((IsExactCastAvailable<T, C>::value));
+};
+
+
 void TestContextMatch()
 {
-   auto d = 3.14;
-   PRINT(ContextMatch<double&>(true, d) = 2.71);
-   PRINT(ContextMatch<double&&>(d, 1.23, true, d));
-   PRINT(d);
-   PRINT(GetTypeName<decltype(ContextMatch<const std::string&>(2.71, false, "Hello!"))>());
-   PRINT(ContextMatch<std::string>("Hello, World!", 3.14, size_t(42), ""));
-   PRINT(ContextGet<1>("Hello, World!", 3.14, size_t(42), ""));
-   PRINT((intptr_t)ContextMatch<class C*>("Hello, World!", 3.14, size_t(42), "", nullptr));
-   //ContextMatch<double&>(3.14); // error C2338: The requested type is missing from the actual parameter list
+   using namespace detail;
+   {
+      struct B { virtual std::string foo() const { return __FUNCSIG__; } };
+      struct D : B { virtual std::string foo() const { return __FUNCSIG__; } };
+      D d; B b;
+      auto&& x = ContextMatch<const B&>(d, b);
+      PRINT(x.foo());
+      PRINT(int(ContextCastImpl<B*, B&>::priority));
+   }
+   {
+      const char* x = ContextMatch<const char*>(95., true, 0., 'R', 'U', 0., 42, "Hi!", short(1));
+      if (x) PRINT(x); else PRINT(intptr_t(x));
+   }
+   {
+      const char* x = ContextMatch<const char*>(nullptr);
+      if (x) PRINT(x); else PRINT(intptr_t(x));
+      PRINT(GetTypeName<decltype(x)>());
+   }
+//   {
+//      int&& i = 42;
+//      PRINT((ContextCast<const double&>(i)));
+//      //printConversionTraits<double&, const double>();
+//   }
+   struct A { using type_ = A; };
+   PRINT(IsEnabled<A>::value);
+   {
+      auto d = 3.14;
+      PRINT(ContextMatch<double&>(true, d) = 2.71);
+      PRINT(ContextMatch<double&&>(d, 1.23, true, d));
+      PRINT(d);
+      PRINT(GetTypeName<decltype(ContextMatch<const std::string&>(2.71, false, "Hello!"))>());
+      PRINT(ContextMatch<std::string>("Hello, World!", 3.14, size_t(42), ""));
+      PRINT(ContextGet<1>("Hello, World!", 3.14, size_t(42), ""));
+      PRINT((intptr_t)ContextMatch<class C*>("Hello, World!", 3.14, size_t(42), "", nullptr));
+      //ContextMatch<double&>(3.14); // error C2338: The requested type is missing from the actual parameter list
+   }
 }
 
 void TestGetTypeName()
