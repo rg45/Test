@@ -24,121 +24,6 @@ using detail::decay_t;
 using detail::enable_if_t;
 using detail::IsEnabled;
 
-template <typename T, typename C>
-using IsAnyCastAvailable = std::is_convertible<C, T>;
-
-template <typename T, typename C>
-struct IsValueCastAvailable
-{
-   struct ImplicitConvertible { operator C&& (); };
-   static constexpr bool value = std::is_convertible<ImplicitConvertible, T>::value;
-};
-
-template <typename T, typename C>
-struct IsReferenceCastAvailable
-{
-   template <typename T> using Pointer = typename std::add_pointer<decay_t<T>>::type;
-   static constexpr bool value = std::is_convertible<Pointer<C>, Pointer<T>>::value
-      && IsAnyCastAvailable<T, C>::value;
-};
-
-template <typename T, typename C>
-struct IsExactCastAvailable
-{
-   template <typename U>
-   static std::false_type test(U&&);
-   static std::true_type test(T);
-   static constexpr bool value = decltype(test(std::declval<C>()))::value;
-};
-
-enum class ContextCastPriority
-{
-   none = 0,
-   custom = 1,
-   value = 2,
-   pointer = 3,
-   reference = 4,
-   exact = 5
-};
-
-template <typename T, typename C, typename = void>
-struct ContextCastImpl
-{
-   static constexpr auto priority = ContextCastPriority::none;
-};
-
-template <typename T, typename C>
-struct ContextCastImpl<T, C, enable_if_t<IsAnyCastAvailable<T, C>::value>>
-   : std::enable_if<true>
-{
-   static constexpr auto priority =
-      IsExactCastAvailable<T, C>::value ? ContextCastPriority::exact :
-      IsReferenceCastAvailable<T, C>::value ? ContextCastPriority::reference :
-      IsValueCastAvailable<T, C>::value ? ContextCastPriority::value :
-      IsAnyCastAvailable<T, C>::value ? ContextCastPriority::custom :
-      ContextCastPriority::none;
-
-   C&& operator()(C&& c) const { return std::forward<C>(c); }
-};
-
-template <typename T, typename C>
-struct ContextCastImpl<T*, C, enable_if_t<
-   !IsAnyCastAvailable<T*, C>::value &&
-   ContextCastImpl<T&, C>::priority >= ContextCastPriority::reference>>
-   : std::enable_if<true>
-{
-   static constexpr auto priority = ContextCastPriority::pointer;
-
-   T* operator()(C&& c) const
-   {
-      auto&& named = ContextCastImpl<T&, C>()(std::forward<C>(c));
-      return &named;
-   }
-};
-
-template <typename T, typename Head, typename Middle, typename Tail, typename = void>
-struct ContextMatchImpl : std::enable_if<false> { };
-
-template <typename T, typename...Head, typename Next, typename...Tail>
-struct ContextMatchImpl<T, std::tuple<Head...>, std::tuple<>, std::tuple<Next, Tail...>,
-   enable_if_t<ContextCastImpl<T, Next>::priority == ContextCastPriority::none>>
-   : ContextMatchImpl<T, std::tuple<Head..., Next>, std::tuple<>, std::tuple<Tail...>> { };
-
-template <typename T, typename...Head, typename Next, typename...Tail>
-struct ContextMatchImpl<T, std::tuple<Head...>, std::tuple<>, std::tuple<Next, Tail...>,
-   enable_if_t<ContextCastImpl<T, Next>::priority != ContextCastPriority::none>>
-   : ContextMatchImpl<T, std::tuple<Head...>, std::tuple<Next>, std::tuple<Tail...>> { };
-
-template <typename T, typename...Head, typename Current, typename...Middle, typename Next, typename...Tail>
-struct ContextMatchImpl<T, std::tuple<Head...>, std::tuple<Current, Middle...>, std::tuple<Next, Tail...>,
-   enable_if_t<ContextCastImpl<T, Current>::priority >= ContextCastImpl<T, Next>::priority>>
-   : ContextMatchImpl<T, std::tuple<Head...>, std::tuple<Current, Middle..., Next>, std::tuple<Tail...>> { };
-
-template <typename T, typename...Head, typename Current, typename...Middle, typename Next, typename...Tail>
-struct ContextMatchImpl<T, std::tuple<Head...>, std::tuple<Current, Middle...>, std::tuple<Next, Tail...>,
-   enable_if_t<ContextCastImpl<T, Current>::priority < ContextCastImpl<T, Next>::priority>>
-   : ContextMatchImpl<T, std::tuple<Head..., Current, Middle...>, std::tuple<Next>, std::tuple<Tail...>> { };
-
-template <typename T, typename...Head, typename Matched, typename...Tail>
-struct ContextMatchImpl <T, std::tuple<Head...>, std::tuple<Matched, Tail...>, std::tuple<>>
-   : std::enable_if<true>
-{
-   decltype(auto) operator()(Head&&..., Matched&& matched, Tail&&...) const
-   {
-      return ContextCastImpl<T, Matched>()(std::forward<Matched>(matched));
-   }
-};
-
-template <typename T, typename...Context>
-using ContextMatchFacade = ContextMatchImpl<T, std::tuple<>, std::tuple<>, std::tuple<Context...>>;
-
-template <typename T, typename...Context>
-decltype(auto) ContextMatch(Context&&...context)
-{
-   static_assert(IsEnabled<ContextMatchFacade<T, Context..., nullptr_t>>::value, "Context match failed: " __FUNCSIG__);
-   return ContextMatchFacade<T, Context..., nullptr_t>()(std::forward<Context>(context)..., nullptr);
-}
-
 } // namespace detail2
 
 template <typename T, typename C>
@@ -152,8 +37,8 @@ void printConversionTraits()
    PRINT((IsExactCastAvailable<T, C>::value));
 };
 
-struct B { };
-struct D : B { };
+struct B { virtual std::string foo() const { return __FUNCSIG__; } };
+struct D : B { virtual std::string foo() const { return __FUNCSIG__; } };
 
 int main()
 {
@@ -162,9 +47,20 @@ int main()
    using namespace detail2;
 
    //double&& x = 2.71;
-   const char* x = detail2::ContextMatch<const char*>(95., true, 0., 'R', 'U', 0., 42, "Hi!", short(1));
-   PRINT(intptr_t(x));
-   PRINT(GetTypeName<decltype(x)>());
+   {
+      const B* x = ContextMatch<const D*>(95., true, 'R', 'U', "Hi!", short(1), B(), D());
+      PRINT(intptr_t(x));
+      PRINT(x->foo());
+   }
+   {
+      const char* x = ContextMatch<const char*>(95., true, 0., 'R', 'U', 0., 42, "Hi!", short(1));
+      if (x) PRINT(x); else PRINT(intptr_t(x));
+   }
+   {
+      const char* x = ContextMatch<const char*>(nullptr);
+      if (x) PRINT(x); else PRINT(intptr_t(x));
+      PRINT(GetTypeName<decltype(x)>());
+   }
 
 
 //   {
