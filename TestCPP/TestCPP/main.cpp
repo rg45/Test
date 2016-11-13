@@ -18,7 +18,10 @@ using namespace cqg::RS::TestFramework::TestScenarioTools;
 
 void foo(int value) { PRINT(value); }
 
-template <typename T> using Type = typename T::type;
+namespace detail2
+{
+using detail::decay_t;
+using detail::enable_if_t;
 
 template <typename T, typename C>
 using IsAnyCastAvailable = std::is_convertible<C, T>;
@@ -33,7 +36,7 @@ struct IsValueCastAvailable
 template <typename T, typename C>
 struct IsReferenceCastAvailable
 {
-   template <typename T> using Pointer = Type<std::add_pointer<Type<std::decay<T>>>>;
+   template <typename T> using Pointer = typename std::add_pointer<decay_t<T>>::type;
    static constexpr bool value = std::is_convertible<Pointer<C>, Pointer<T>>::value
       && IsAnyCastAvailable<T, C>::value;
 };
@@ -57,17 +60,13 @@ enum class ContextCastPriority
 };
 
 template <typename T, typename C, typename = void>
-struct ContextCast
+struct ContextCastImpl
 {
    static constexpr auto priority = ContextCastPriority::none;
-   T&& operator()(C&&) const { static_assert(false, "Illegal type cast in " __FUNCSIG__); }
 };
 
-template <bool c>
-using enable_if_t = typename std::enable_if<c>::type;
-
 template <typename T, typename C>
-struct ContextCast<T, C, enable_if_t<
+struct ContextCastImpl<T, C, enable_if_t<
    IsAnyCastAvailable<T, C>::value &&
    !IsReferenceCastAvailable<T, C>::value>>
 {
@@ -78,7 +77,7 @@ struct ContextCast<T, C, enable_if_t<
 };
 
 template <typename T, typename C>
-struct ContextCast<T, C, enable_if_t<
+struct ContextCastImpl<T, C, enable_if_t<
    IsReferenceCastAvailable<T, C>::value ||
    IsExactCastAvailable<T, C>::value>>
 {
@@ -89,8 +88,51 @@ struct ContextCast<T, C, enable_if_t<
 };
 
 template <typename T, typename C>
+decltype(auto) ContextCast(C&& c)
+{
+   static_assert(ContextCastImpl<T, C>::priority != ContextCastPriority::none, "Context cast failed: " __FUNCSIG__);
+
+   return ContextCastImpl<T, C>()(std::forward<C>(c));
+}
+
+template <typename T, typename Head, typename Middle, typename Tail, typename = void>
+struct ContextMatchImpl { };
+
+template <typename T, typename...Head, typename Next, typename...Tail>
+struct ContextMatchImpl<T, std::tuple<Head...>, std::tuple<>, std::tuple<Next, Tail...>,
+   enable_if_t<ContextCastImpl<T, Next>::priority == ContextCastPriority::none>>
+   : ContextMatchImpl<T, std::tuple<Head..., Next>, std::tuple<>, std::tuple<Tail...>> { };
+
+template <typename T, typename...Head, typename Next, typename...Tail>
+struct ContextMatchImpl<T, std::tuple<Head...>, std::tuple<>, std::tuple<Next, Tail...>,
+   enable_if_t<ContextCastImpl<T, Next>::priority != ContextCastPriority::none>>
+   : ContextMatchImpl<T, std::tuple<Head...>, std::tuple<Next>, std::tuple<Tail...>> { };
+
+template <typename T, typename...Head, typename Current, typename...Middle, typename Next, typename...Tail>
+struct ContextMatchImpl<T, std::tuple<Head...>, std::tuple<Current, Middle...>, std::tuple<Next, Tail...>,
+   enable_if_t<ContextCastImpl<T, Current>::priority >= ContextCastImpl<T, Next>::priority>>
+   : ContextMatchImpl<T, std::tuple<Head...>, std::tuple<Current, Middle..., Next>, std::tuple<Tail...>> { };
+
+template <typename T, typename...Head, typename Current, typename...Middle, typename Next, typename...Tail>
+struct ContextMatchImpl<T, std::tuple<Head...>, std::tuple<Current, Middle...>, std::tuple<Next, Tail...>,
+   enable_if_t<ContextCastImpl<T, Current>::priority < ContextCastImpl<T, Next>::priority>>
+   : ContextMatchImpl<T, std::tuple<Head..., Current, Middle...>, std::tuple<Next>, std::tuple<Tail...>> { };
+
+template <typename T, typename...Head, typename Current, typename...Tail>
+struct ContextMatchImpl < T, std::tuple<Head...>, std::tuple<Current, Tail...>, std::tuple<>>
+{
+   decltype(auto) operator()(Head&&..., Current&& current, Tail&&...) const
+   {
+      return ContextCast<T>(std::forward<Current>(current));
+   }
+};
+
+} // namespace detail2
+
+template <typename T, typename C>
 void printConversionTraits()
 {
+   using namespace detail2;
    std::cout << Format("\"%1%\" -> \"%2%\":", GetTypeName<C>(), GetTypeName<T>()) << std::endl;
    PRINT((IsAnyCastAvailable<T, C>::value));
    PRINT((IsValueCastAvailable<T, C>::value));
@@ -105,8 +147,9 @@ int main()
 {
    std::cout << std::boolalpha;
 
-   //int i;
-   PRINT((ContextCast<const double&, int>()(42)));
+   using namespace detail2;
+   int&& i = 42;
+   PRINT((ContextCast<const double&>(i)));
    //printConversionTraits<double&, const double>();
 
 
