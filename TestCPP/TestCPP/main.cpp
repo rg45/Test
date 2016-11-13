@@ -22,6 +22,7 @@ namespace detail2
 {
 using detail::decay_t;
 using detail::enable_if_t;
+using detail::IsEnabled;
 
 template <typename T, typename C>
 using IsAnyCastAvailable = std::is_convertible<C, T>;
@@ -66,23 +67,14 @@ struct ContextCastImpl
 };
 
 template <typename T, typename C>
-struct ContextCastImpl<T, C, enable_if_t<
-   IsAnyCastAvailable<T, C>::value &&
-   !IsReferenceCastAvailable<T, C>::value>>
+struct ContextCastImpl<T, C, enable_if_t<IsAnyCastAvailable<T, C>::value>>
 {
-   static constexpr auto priority = IsValueCastAvailable<C,T>::value ?
-      ContextCastPriority::value : ContextCastPriority::custom;
-
-   T operator()(C&& c) const { return T(std::forward<C>(c)); }
-};
-
-template <typename T, typename C>
-struct ContextCastImpl<T, C, enable_if_t<
-   IsReferenceCastAvailable<T, C>::value ||
-   IsExactCastAvailable<T, C>::value>>
-{
-   static constexpr auto priority = IsExactCastAvailable<C, T>::value ?
-      ContextCastPriority::exact : ContextCastPriority::reference;
+   static constexpr auto priority =
+      IsExactCastAvailable<T, C>::value ? ContextCastPriority::exact :
+      IsReferenceCastAvailable<T, C>::value ? ContextCastPriority::reference :
+      IsValueCastAvailable<T, C>::value ? ContextCastPriority::value :
+      IsAnyCastAvailable<T, C>::value ? ContextCastPriority::custom :
+      ContextCastPriority::none;
 
    C&& operator()(C&& c) const { return std::forward<C>(c); }
 };
@@ -91,12 +83,11 @@ template <typename T, typename C>
 decltype(auto) ContextCast(C&& c)
 {
    static_assert(ContextCastImpl<T, C>::priority != ContextCastPriority::none, "Context cast failed: " __FUNCSIG__);
-
    return ContextCastImpl<T, C>()(std::forward<C>(c));
 }
 
 template <typename T, typename Head, typename Middle, typename Tail, typename = void>
-struct ContextMatchImpl { };
+struct ContextMatchImpl : std::enable_if<false> { };
 
 template <typename T, typename...Head, typename Next, typename...Tail>
 struct ContextMatchImpl<T, std::tuple<Head...>, std::tuple<>, std::tuple<Next, Tail...>,
@@ -118,14 +109,25 @@ struct ContextMatchImpl<T, std::tuple<Head...>, std::tuple<Current, Middle...>, 
    enable_if_t<ContextCastImpl<T, Current>::priority < ContextCastImpl<T, Next>::priority>>
    : ContextMatchImpl<T, std::tuple<Head..., Current, Middle...>, std::tuple<Next>, std::tuple<Tail...>> { };
 
-template <typename T, typename...Head, typename Current, typename...Tail>
-struct ContextMatchImpl < T, std::tuple<Head...>, std::tuple<Current, Tail...>, std::tuple<>>
+template <typename T, typename...Head, typename Matched, typename...Tail>
+struct ContextMatchImpl <T, std::tuple<Head...>, std::tuple<Matched, Tail...>, std::tuple<>>
+   : std::enable_if<true>
 {
-   decltype(auto) operator()(Head&&..., Current&& current, Tail&&...) const
+   decltype(auto) operator()(Head&&..., Matched&& matched, Tail&&...) const
    {
-      return ContextCast<T>(std::forward<Current>(current));
+      return ContextCastImpl<T, Matched>()(std::forward<Matched>(matched));
    }
 };
+
+template <typename T, typename...Context>
+using ContextMatchFacade = ContextMatchImpl<T, std::tuple<>, std::tuple<>, std::tuple<Context...>>;
+
+template <typename T, typename...Context>
+decltype(auto) ContextMatch(Context&&...context)
+{
+   static_assert(IsEnabled<ContextMatchFacade<T, Context...>>::value, "Context match failed: " __FUNCSIG__);
+   return ContextMatchFacade<T, Context...>()(std::forward<Context>(context)...);
+}
 
 } // namespace detail2
 
@@ -148,9 +150,20 @@ int main()
    std::cout << std::boolalpha;
 
    using namespace detail2;
-   int&& i = 42;
-   PRINT((ContextCast<const double&>(i)));
-   //printConversionTraits<double&, const double>();
+
+   //double&& x = 2.71;
+   decltype(auto) x = detail2::ContextMatch<const std::string&>(95., true, (char)('!'), 42., "Hello!", short(1));
+   PRINT(x);
+
+
+//   {
+//      int&& i = 42;
+//      PRINT((ContextCast<const double&>(i)));
+//      //printConversionTraits<double&, const double>();
+//   }
+//
+//   struct A { using type_ = A; };
+//   PRINT(IsEnabled<A>::value);
 
 
 //   TEST(TestContextCall);
