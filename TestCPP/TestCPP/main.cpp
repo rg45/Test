@@ -56,8 +56,9 @@ enum class ContextCastPriority
    none = 0,
    custom = 1,
    value = 2,
-   reference = 3,
-   exact = 4
+   pointer = 3,
+   reference = 4,
+   exact = 5
 };
 
 template <typename T, typename C, typename = void>
@@ -68,6 +69,7 @@ struct ContextCastImpl
 
 template <typename T, typename C>
 struct ContextCastImpl<T, C, enable_if_t<IsAnyCastAvailable<T, C>::value>>
+   : std::enable_if<true>
 {
    static constexpr auto priority =
       IsExactCastAvailable<T, C>::value ? ContextCastPriority::exact :
@@ -80,11 +82,19 @@ struct ContextCastImpl<T, C, enable_if_t<IsAnyCastAvailable<T, C>::value>>
 };
 
 template <typename T, typename C>
-decltype(auto) ContextCast(C&& c)
+struct ContextCastImpl<T*, C, enable_if_t<
+   !IsAnyCastAvailable<T*, C>::value &&
+   ContextCastImpl<T&, C>::priority >= ContextCastPriority::reference>>
+   : std::enable_if<true>
 {
-   static_assert(ContextCastImpl<T, C>::priority != ContextCastPriority::none, "Context cast failed: " __FUNCSIG__);
-   return ContextCastImpl<T, C>()(std::forward<C>(c));
-}
+   static constexpr auto priority = ContextCastPriority::pointer;
+
+   T* operator()(C&& c) const
+   {
+      auto&& named = ContextCastImpl<T&, C>()(std::forward<C>(c));
+      return &named;
+   }
+};
 
 template <typename T, typename Head, typename Middle, typename Tail, typename = void>
 struct ContextMatchImpl : std::enable_if<false> { };
@@ -125,8 +135,8 @@ using ContextMatchFacade = ContextMatchImpl<T, std::tuple<>, std::tuple<>, std::
 template <typename T, typename...Context>
 decltype(auto) ContextMatch(Context&&...context)
 {
-   static_assert(IsEnabled<ContextMatchFacade<T, Context...>>::value, "Context match failed: " __FUNCSIG__);
-   return ContextMatchFacade<T, Context...>()(std::forward<Context>(context)...);
+   static_assert(IsEnabled<ContextMatchFacade<T, Context..., nullptr_t>>::value, "Context match failed: " __FUNCSIG__);
+   return ContextMatchFacade<T, Context..., nullptr_t>()(std::forward<Context>(context)..., nullptr);
 }
 
 } // namespace detail2
@@ -152,8 +162,9 @@ int main()
    using namespace detail2;
 
    //double&& x = 2.71;
-   decltype(auto) x = detail2::ContextMatch<const std::string&>(95., true, (char)('!'), 42., "Hello!", short(1));
-   PRINT(x);
+   const char* x = detail2::ContextMatch<const char*>(95., true, 0., 'R', 'U', 0., 42, "Hi!", short(1));
+   PRINT(intptr_t(x));
+   PRINT(GetTypeName<decltype(x)>());
 
 
 //   {

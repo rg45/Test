@@ -111,7 +111,10 @@ template <size_t index, typename...Context>
 decltype(auto) ContextGet(Context&&...);
 
 /// @brief Matches a first appropriate object of the Context that could be used for constructing of an object
-/// of the requested type. Raises a compile time error if not found.
+/// of the requested type.
+/// Returns a reference to an object of the context.
+/// Raises a compile time error if not found.
+/// Please note, ContextMatch only performs matching but applies no conversions!
 template <typename T, typename...Context>
 decltype(auto) ContextMatch(Context&&...);
 
