@@ -104,7 +104,7 @@ decltype(auto) ContextCall(F&&, Context&&...);
 /// @brief Captures the Context data and creates a callable object accepting variadic list of callable objects
 /// and applying the ContextCall method for each of them
 template <typename...Context>
-decltype(auto) ContextCallForEach(Context&&...context);
+decltype(auto) ContextForEach(Context&&...context);
 
 /// @brief Matches object of the Context by the index
 template <size_t index, typename...Context>
@@ -369,7 +369,7 @@ decltype(auto) Aggregate(F&&...f)
    using namespace detail;
    return [&](auto&&...arg)
    {
-      ContextCallForEach(std::forward<decltype(arg)>(arg)...)(std::forward<decltype(f)>(f)...);
+      ContextForEach(std::forward<decltype(arg)>(arg)...)(std::forward<decltype(f)>(f)...);
    };
 };
 
@@ -385,7 +385,7 @@ decltype(auto) ContextCall(F&& f, Context&&...context)
 }
 
 template <typename...Context>
-decltype(auto) ContextCallForEach(Context&&...context)
+decltype(auto) ContextForEach(Context&&...context)
 {
    using namespace detail;
    return [&](auto&&...f)
