@@ -6,19 +6,5 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h" />
-    <ClInclude Include="..\Gateway\RiskServer\TestFramework\TestScenarioTools.h">
-      <Filter>Gateway\RiskServer\TestFramework</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <Filter Include="Gateway">
-      <UniqueIdentifier>{4030ccfc-d36a-4070-aaa3-38e34f525d04}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Gateway\RiskServer">
-      <UniqueIdentifier>{b9132a56-51ae-45c6-99b2-2ef743aa129d}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Gateway\RiskServer\TestFramework">
-      <UniqueIdentifier>{02367d4c-56b9-4010-820e-32ea7a540758}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
 </Project>

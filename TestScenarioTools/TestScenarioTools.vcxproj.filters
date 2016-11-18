@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Gateway">
+      <UniqueIdentifier>{d2909298-3a42-4875-9c40-dd47face0837}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Gateway\RiskServer">
+      <UniqueIdentifier>{7a6232ac-8959-44c9-9cc1-762b7e4bd297}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Gateway\RiskServer\TestFramework">
+      <UniqueIdentifier>{c8c70262-d586-461c-86d0-f26c9ac4b4e6}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\Gateway\RiskServer\TestFramework\TestScenarioTools.h">
+      <Filter>Gateway\RiskServer\TestFramework</Filter>
+    </ClInclude>
+    <ClInclude Include="stdafx.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="stdafx.cpp" />
+    <ClCompile Include="main.cpp" />
+  </ItemGroup>
+</Project>
