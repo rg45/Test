@@ -7,6 +7,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestCPP", "TestCPP\TestCPP.
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestScenarioTools", "TestScenarioTools\TestScenarioTools.vcxproj", "{886EABFB-6FB0-4181-919E-7ED26F040D52}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BoostSerializationPatch", "BoostSerializationPatch\BoostSerializationPatch.vcxproj", "{911D52B0-CB4D-4A5E-B0D0-BEE8E714EBA1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -31,6 +33,14 @@ Global
 		{886EABFB-6FB0-4181-919E-7ED26F040D52}.Release|x64.Build.0 = Release|x64
 		{886EABFB-6FB0-4181-919E-7ED26F040D52}.Release|x86.ActiveCfg = Release|Win32
 		{886EABFB-6FB0-4181-919E-7ED26F040D52}.Release|x86.Build.0 = Release|Win32
+		{911D52B0-CB4D-4A5E-B0D0-BEE8E714EBA1}.Debug|x64.ActiveCfg = Debug|x64
+		{911D52B0-CB4D-4A5E-B0D0-BEE8E714EBA1}.Debug|x64.Build.0 = Debug|x64
+		{911D52B0-CB4D-4A5E-B0D0-BEE8E714EBA1}.Debug|x86.ActiveCfg = Debug|Win32
+		{911D52B0-CB4D-4A5E-B0D0-BEE8E714EBA1}.Debug|x86.Build.0 = Debug|Win32
+		{911D52B0-CB4D-4A5E-B0D0-BEE8E714EBA1}.Release|x64.ActiveCfg = Release|x64
+		{911D52B0-CB4D-4A5E-B0D0-BEE8E714EBA1}.Release|x64.Build.0 = Release|x64
+		{911D52B0-CB4D-4A5E-B0D0-BEE8E714EBA1}.Release|x86.ActiveCfg = Release|Win32
+		{911D52B0-CB4D-4A5E-B0D0-BEE8E714EBA1}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
