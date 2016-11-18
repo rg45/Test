@@ -13,7 +13,11 @@
     <IncludePath>$(SolutionDir);$(TestAdditionalIncludeDir);$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
     <LibraryPath>$(TestAdditionalLibDir);$(LibraryPath)</LibraryPath>
   </PropertyGroup>
-  <ItemDefinitionGroup />
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <WarningLevel>EnableAllWarnings</WarningLevel>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <ItemGroup>
     <BuildMacro Include="ThirdPartyDir">
       <Value>$(ThirdPartyDir)</Value>
