@@ -39,7 +39,7 @@ namespace TestScenarioTools
 
       // Specific methods for test scenario description.
       // Could be implemented as any callable instances: objects, lambdas or free functions:
-      auto exchange       = [](...) {...}     // creates or acquires an exchnage
+      auto exchange       = [](...) {...}     // creates or acquires an exchange
       auto contract       = [](...) {...}     // creates or acquires a contract
       auto account        = [](...) {...}     // creates or acquires an account
       auto testCase       = [](...) {...}     // creates a test case
@@ -407,6 +407,8 @@ decltype(auto) ContextGet(Context&&...context)
    return std::get<index>(std::tuple<Context&&...>(std::forward<Context>(context)...));
 }
 
+#pragma warning (push)
+#pragma warning (disable : 4172)
 template <typename T, typename...Context>
 decltype(auto) ContextMatch(Context&&...context)
 {
@@ -416,6 +418,7 @@ decltype(auto) ContextMatch(Context&&...context)
 
    return ContextMatchFacade<T, Context..., nullptr_t>()(std::forward<Context>(context)..., nullptr);
 }
+#pragma warning (pop)
 
 template <typename Data>
 void Format(std::ostream& output, Data&& data)
