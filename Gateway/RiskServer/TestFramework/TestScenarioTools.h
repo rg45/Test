@@ -331,7 +331,7 @@ struct ContextCallImpl<R(Args...), std::tuple<Context...>>
    template <typename F>
    R operator()(F&& f, Context&&...context) const
    {
-      return f(ContextMatch<Args>(std::forward<Context>(context)...)...);
+      return f(ContextMatch<Args>(std::forward<Context>(context)..., nullptr)...);
    }
 };
 
@@ -357,7 +357,7 @@ struct ContextCallImplVariadic<R(Args...), Context...>
    template <typename F>
    R operator()(F&& f, Context&&...context) const
    {
-      return f(ContextMatch<Args>(std::forward<Context>(context)...)..., std::forward<Context>(context)...);
+      return f(ContextMatch<Args>(std::forward<Context>(context)..., nullptr)..., std::forward<Context>(context)...);
    }
 };
 
@@ -407,18 +407,15 @@ decltype(auto) ContextGet(Context&&...context)
    return std::get<index>(std::tuple<Context&&...>(std::forward<Context>(context)...));
 }
 
-#pragma warning (push)
-#pragma warning (disable : 4172)
 template <typename T, typename...Context>
 decltype(auto) ContextMatch(Context&&...context)
 {
    using namespace detail;
 
-   static_assert(IsEnabled<ContextMatchFacade<T, Context..., nullptr_t>>::value, "Context match failed: " __FUNCSIG__);
+   static_assert(IsEnabled<ContextMatchFacade<T, Context...>>::value, "Context match failed: " __FUNCSIG__);
 
-   return ContextMatchFacade<T, Context..., nullptr_t>()(std::forward<Context>(context)..., nullptr);
+   return ContextMatchFacade<T, Context...>()(std::forward<Context>(context)...);
 }
-#pragma warning (pop)
 
 template <typename Data>
 void Format(std::ostream& output, Data&& data)
