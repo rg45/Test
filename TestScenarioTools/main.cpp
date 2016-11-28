@@ -7,19 +7,18 @@
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <type_traits>
 
 #include <boost/noncopyable.hpp>
 
 using namespace cqg::RS::TestFramework::TestScenarioTools;
 
-#define TEST(name) void name(); std::cout << "\n==================== "#name" ====================" << std::endl; name();
-
-void foo(int value) { PRINT(value); }
 
 int main()
 {
    std::cout << std::boolalpha;
 
+#define TEST(name) void name(); std::cout << "\n==================== "#name" ====================" << std::endl; name();
    TEST(TestContextCall);
    TEST(TestTruncatedSignatureType);
    TEST(TestFunctionObjectKindDetection);
@@ -28,6 +27,8 @@ int main()
 }
 
 #if 10
+
+void foo(int value) { PRINT(value); }
 
 void TestContextCall()
 {
