@@ -16,9 +16,11 @@
       <Filter>Gateway\RiskServer\TestFramework</Filter>
     </ClInclude>
     <ClInclude Include="stdafx.h" />
+    <ClInclude Include="tests.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="ContextCallRemake.cpp" />
   </ItemGroup>
 </Project>

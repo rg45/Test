@@ -1,7 +1,9 @@
 #include "stdafx.h"
 
+#include "tests.h"
 #include <Gateway/RiskServer/TestFramework/TestScenarioTools.h>
 
+#include <boost/noncopyable.hpp>
 #include <functional>
 #include <iostream>
 #include <sstream>
@@ -9,29 +11,30 @@
 #include <tuple>
 #include <type_traits>
 
-#include <boost/noncopyable.hpp>
-
-using namespace cqg::RS::TestFramework::TestScenarioTools;
-
-
 int main()
 {
+   using namespace tests;
    std::cout << std::boolalpha;
 
-#define TEST(name) void name(); std::cout << "\n==================== "#name" ====================" << std::endl; name();
-   TEST(TestContextCall);
-   TEST(TestTruncatedSignatureType);
-   TEST(TestFunctionObjectKindDetection);
-   TEST(TestContextMatch);
-   TEST(TestGetTypeName);
+   ContextCallRemake::test();
+
+//    TestContextCall();
+//    TestTruncatedSignatureType();
+//    TestFunctionObjectKindDetection();
+//    TestContextMatch();
+//    TestGetTypeName();
 }
 
-#if 10
+namespace tests
+{
+using namespace cqg::RS::TestFramework::TestScenarioTools;
 
 void foo(int value) { PRINT(value); }
 
 void TestContextCall()
 {
+   PRINT_CAPTION();
+
    auto l2 = [](int i, short&& r, double d, /*auto&&,*/ auto&&...context) { PRINT(i), PRINT(r); PRINT(d); PRINT(sizeof...(context)); };
    short s = 2;
    ContextCall(l2, "Hello", 42, 3.14, s);
@@ -53,6 +56,8 @@ void TestContextCall()
 
 void TestTruncatedSignatureType()
 {
+   PRINT_CAPTION();
+
    PRINT((GetTypeName<detail::TruncatedSignatureType<int(double, short, bool), 0>>()));
    PRINT((GetTypeName<detail::TruncatedSignatureType<int(double, short, bool), 1>>()));
    PRINT((GetTypeName<detail::TruncatedSignatureType<int(double, short, bool), 2>>()));
@@ -62,6 +67,8 @@ void TestTruncatedSignatureType()
 
 void TestFunctionObjectKindDetection()
 {
+   PRINT_CAPTION();
+
    auto l3 = [](int i, auto&& x) { PRINT(i); PRINT(x); };
    l3(42, 3.14);
    PRINT(detail::IsVariadicFunctionObject<decltype(l3)>::value);
@@ -79,6 +86,8 @@ void TestFunctionObjectKindDetection()
 template <typename T, typename C>
 void printConversionTraits()
 {
+   PRINT_CAPTION();
+
    using namespace detail2;
    std::cout << Format("\"%1%\" -> \"%2%\":", GetTypeName<C>(), GetTypeName<T>()) << std::endl;
    PRINT((IsAnyCastAvailable<T, C>::value));
@@ -90,6 +99,8 @@ void printConversionTraits()
 
 void TestContextMatch()
 {
+   PRINT_CAPTION();
+
    using namespace detail;
    {
       struct B { virtual std::string foo() const { return __FUNCSIG__; } };
@@ -130,6 +141,8 @@ void TestContextMatch()
 
 void TestGetTypeName()
 {
+   PRINT_CAPTION();
+
    PRINT(GetTypeName(3.14));
    PRINT(GetTypeName(std::forward<double&&>(3.14)));
    PRINT(GetTypeName<decltype(3.14)>());
@@ -147,4 +160,4 @@ void TestGetTypeName()
    PRINT(GetTypeName(&decltype(createLambda(2))::operator() < double > ));
    PRINT(GetTypeName(&decltype(createLambda(2))::operator() < double& > ));
 }
-#endif
+} // namespace tests
