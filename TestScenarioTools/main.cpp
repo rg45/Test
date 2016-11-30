@@ -11,12 +11,37 @@
 #include <tuple>
 #include <type_traits>
 
+using cqg::RS::TestFramework::TestScenarioTools::GetTypeName;
+using cqg::RS::TestFramework::TestScenarioTools::detail::enable_if_t;
+
+template <typename Signature, typename NewSig, size_t tailSize, typename = void>
+struct SplitSignatureImpl;
+
+template <typename R, typename Next, typename...Tail, typename...Head, size_t tailSize>
+struct SplitSignatureImpl<R(Next, Tail...), R(Head...), tailSize, enable_if_t<sizeof...(Tail) >= tailSize>>
+   : SplitSignatureImpl<R(Tail...), R(Head..., Next), tailSize> { };
+
+template <typename R, typename...Tail, typename...Head, size_t tailSize>
+struct SplitSignatureImpl<R(Tail...), R(Head...), tailSize, enable_if_t<sizeof...(Tail) == tailSize>>
+{
+   using type = R(Head...);
+};
+
+template <typename Signature, size_t tailSize> struct SplitSignature;
+template <typename R, typename...Args, size_t tailSize>
+struct SplitSignature<R(Args...), tailSize> : SplitSignatureImpl<R(Args...), R(), tailSize> { };
+
+template <typename Signature, size_t tailSize>
+using SplitSignatureType = typename SplitSignature<Signature, tailSize>::type;
+
 int main()
 {
    using namespace tests;
    std::cout << std::boolalpha;
 
-   ContextCallRemake::test();
+   PRINT((GetTypeName<SplitSignatureType<void(int, double, float, char, bool), 2>>()));
+
+//   ContextCallRemake::test();
 
 //    TestContextCall();
 //    TestTruncatedSignatureType();
