@@ -94,8 +94,9 @@ template <typename...F>
 decltype(auto) Aggregate(F&&...);
 
 /// @brief Invokes any callable object with parameters taken from the context.
-/// The target method can have a fixed parameter list, variadic parameter lists or both at the time.
-/// If variadic parameter set is present, whole the Context is passed to it in its original order.
+/// The callable object can declare fixed, template and variadic formal parameters.
+/// Template parameters are matched by order, in contrast with fixed parameters that are matched by type. 
+/// If variadic parameter list is declared, whole the Context is passed to it in its original order.
 /// Fixed part of actual parameter are also being retrieved from the Context
 /// exercising matching by types of the formal parameters.
 template <typename F, typename...Context>
@@ -104,7 +105,7 @@ decltype(auto) ContextCall(F&&, Context&&...);
 /// @brief Captures the Context data and creates a callable object accepting variadic list of callable objects
 /// and applying the ContextCall method for each of them
 template <typename...Context>
-decltype(auto) ContextForEach(Context&&...context);
+decltype(auto) ContextForEach(Context&&...);
 
 /// @brief Matches object of the Context by the index
 template <size_t index, typename...Context>
@@ -141,11 +142,20 @@ using enable_if_t = typename std::enable_if<cond, type>::type;
 template <typename T>
 using decay_t = typename std::decay<T>::type;
 
+template <typename T>
+using TypeOf = typename decay_t<T>::type;
+
+template <typename>
+using IfAvailable = TypeOf<std::enable_if<true>>;
+
 template <typename T, typename = void>
 struct IsEnabled : std::false_type { };
 
 template <typename T>
-struct IsEnabled<T, typename T::type> : std::true_type { };
+struct IsEnabled<T, IfAvailable<TypeOf<T>>> : std::true_type { };
+
+template <typename T>
+using IfEnabled = enable_if_t<IsEnabled<T>::value>;
 
 template <typename T, typename C>
 using IsAnyCastAvailable = std::is_convertible<C, T>;
@@ -256,77 +266,71 @@ struct ContextMatchImpl <T, std::tuple<Head...>, std::tuple<Matched, Tail...>, s
 template <typename T, typename...Context>
 using ContextMatchFacade = ContextMatchImpl<T, std::tuple<>, std::tuple<>, std::tuple<Context...>>;
 
-template <typename Method> struct MethodSignature;
+template <typename, typename = void>
+struct SignatureOf;
+
+template <typename T>
+using SignatureType = TypeOf<SignatureOf<decay_t<T>>>;
+
+template <typename T>
+struct SignatureOf<T, IfAvailable<typename T::Signature>> { using type = typename T::Signature; };
 
 template <typename R, typename...Args>
-struct MethodSignature<R(*)(Args...)> { using type = R(Args...); };
+struct SignatureOf<R(Args...)> { using type = R(Args...); };
 
-template <typename F, typename R, typename...Args>
-struct MethodSignature<R(F::*)(Args...)> { using type = R(Args...); };
+template <typename R, typename...Args>
+struct SignatureOf<R(*)(Args...)> { using type = R(Args...); };
 
-template <typename F, typename R, typename...Args>
-struct MethodSignature<R(F::*)(Args...)const> { using type = R(Args...); };
+template <typename T, typename R, typename...Args>
+struct SignatureOf<R(T::*)(Args...)> { using type = R(Args...); };
 
-template <typename Method>
-using MethodSignatureType = typename MethodSignature<Method>::type;
+template <typename T, typename R, typename...Args>
+struct SignatureOf<R(T::*)(Args...) const> { using type = R(Args...); };
 
-template <typename T, typename = decltype(&decay_t<T>::operator())>
-using IfNonTemplatedFunctionOperatorAvailable = enable_if_t<true>;
+template <typename Tail, typename Head, size_t tailSize, typename = void>
+struct SplitSignatureImpl;
 
-template <typename T, typename = void>
-struct IsNonTemplatedFunctionObject : std::false_type { };
+template <typename R, typename Next, typename...Tail, typename...Head, size_t tailSize>
+struct SplitSignatureImpl<R(Next, Tail...), R(Head...), tailSize, enable_if_t<sizeof...(Tail) >= tailSize>>
+   : SplitSignatureImpl<R(Tail...), R(Head..., Next), tailSize> { };
 
-template <typename T>
-struct IsNonTemplatedFunctionObject<T, IfNonTemplatedFunctionOperatorAvailable<T>> : std::true_type { };
-
-template <typename T, typename = decltype(&decay_t<T>::operator() < > )>
-using IfVariadicFunctionOperatorAvailable = enable_if_t<true>;
-
-template <typename T, typename = void>
-struct IsVariadicFunctionObject : std::false_type { };
-
-template <typename T>
-struct IsVariadicFunctionObject<T, IfVariadicFunctionOperatorAvailable<T>> : std::true_type { };
-
-template <typename Signature, size_t cutSize, typename NewSig, typename = void>
-struct TruncatedSignatureImpl;
-
-template <typename R, typename First, typename...Rest, size_t cutSize, typename...NewArgs>
-struct TruncatedSignatureImpl<R(First, Rest...), cutSize, R(NewArgs...), enable_if_t<sizeof...(Rest) >= cutSize>>
-   : TruncatedSignatureImpl<R(Rest...), cutSize, R(NewArgs..., First)> { };
-
-template <typename R, typename...Args, size_t cutSize, typename...NewArgs>
-struct TruncatedSignatureImpl<R(Args...), cutSize, R(NewArgs...), enable_if_t<sizeof...(Args) == cutSize>>
+template <typename R, typename...Tail, typename...Head, size_t tailSize>
+struct SplitSignatureImpl<R(Tail...), R(Head...), tailSize, enable_if_t<sizeof...(Tail) == tailSize>>
 {
-   using type = R(NewArgs...);
+   using type = R(Head...);
 };
 
-template <typename Signature, size_t cutSize> struct TruncatedSignature;
-template <typename R, typename...Args, size_t cutSize>
-struct TruncatedSignature<R(Args...), cutSize> : TruncatedSignatureImpl<R(Args...), cutSize, R()> { };
+template <typename T, size_t tailSize>
+struct SplitSignature : SplitSignature<SignatureType<T>, tailSize> { };
 
-template <typename Signature, size_t cutSize>
-using TruncatedSignatureType = typename TruncatedSignature<Signature, cutSize>::type;
+template <typename R, typename...Args, size_t tailSize>
+struct SplitSignature<R(Args...), tailSize> : SplitSignatureImpl<R(Args...), R(), tailSize> { };
 
-template <typename F, typename Context, typename = void>
-struct ContextCallImpl { };
+template <typename Signature, size_t tailSize>
+using SplitSignatureType = TypeOf<SplitSignature<Signature, tailSize>>;
+
+template <typename T, typename Context, typename = void>
+struct ContextCallImpl;
 
 template <typename F, typename...Context>
-using ContextCallFacade = ContextCallImpl<F, std::tuple<Context...>>;
+using ContextCallFacade = ContextCallImpl<decay_t<F>, std::tuple<Context...>>;
 
 template <typename R, typename...Args, typename Context>
 struct ContextCallImpl<R(*)(Args...), Context> : ContextCallImpl<R(Args...), Context> { };
 
-template <typename R, typename...Args, typename Context>
-struct ContextCallImpl<R(&)(Args...), Context> : ContextCallImpl<R(Args...), Context> { };
+template <typename T, typename Context>
+struct ContextCallImpl<T, Context, IfEnabled<ContextCallImpl<decltype(&decay_t<T>::operator()), Context>>>
+   : ContextCallImpl<decltype(&decay_t<T>::operator()), Context> { };
 
-template <typename F, typename Context>
-struct ContextCallImpl<F, Context, enable_if_t<IsNonTemplatedFunctionObject<F>::value>>
-: ContextCallImpl<MethodSignatureType<decltype(&decay_t<F>::operator())>, Context> { };
+template <typename T, typename R, typename...Args, typename Context>
+struct ContextCallImpl<R(T::*)(Args...), Context> : ContextCallImpl<R(Args...), Context> { };
 
+template <typename T, typename R, typename...Args, typename Context>
+struct ContextCallImpl<R(T::*)(Args...) const, Context> : ContextCallImpl<R(Args...), Context> { };
+
+// Non-variadic call
 template <typename R, typename...Args, typename...Context>
-struct ContextCallImpl<R(Args...), std::tuple<Context...>>
-: std::enable_if<true>
+struct ContextCallImpl<R(Args...), std::tuple<Context...>> : std::enable_if<true>
 {
    template <typename F>
    R operator()(F&& f, Context&&...context) const
@@ -335,24 +339,57 @@ struct ContextCallImpl<R(Args...), std::tuple<Context...>>
    }
 };
 
-template <typename F, typename...Context>
-constexpr decltype(&decay_t<F>::operator()<Context...>) variadicObjectOperator()
+template <typename T, typename TemplateArgs, typename Context, typename = void>
+struct TemplatedContextCall { };
+
+template <typename T, typename Context>
+struct ContextCallImpl<T, Context, IfEnabled<TemplatedContextCall<T, std::tuple<>, Context>>>
+   : TemplatedContextCall<T, std::tuple<>, Context> { };
+
+template <typename T, typename TemplateArgs, typename = void>
+struct IsTemplatedFunctionOperatorAvailableImpl : std::false_type { };
+
+template <typename T, typename...TemplateArgs>
+struct IsTemplatedFunctionOperatorAvailableImpl<T, std::tuple<TemplateArgs...>,
+   IfAvailable<decltype(&decay_t<T>::operator()<TemplateArgs...> )>> : std::true_type { };
+
+template <typename T, typename...TemplateArgs>
+using IsTemplatedFunctionOperatorAvailable = IsTemplatedFunctionOperatorAvailableImpl<T, std::tuple<TemplateArgs...>>;
+
+template <typename T, typename...TemplateArgs>
+struct TemplatedFunctionOperator
 {
-   return &decay_t<F>::operator() < Context... > ;
-}
+   static constexpr auto get() { return &decay_t<T>::operator()<TemplateArgs...>; }
+   using type = decltype(get());
+   using Signature = SignatureType<type>;
+};
 
-template <typename F, typename...Context>
-using VariadicObjectSignature = TruncatedSignatureType<MethodSignatureType<
-   decltype(variadicObjectOperator<F, Context...>())>, sizeof...(Context)>;
+template <typename T, typename...TemplateArgs, typename Next, typename...Context>
+struct TemplatedContextCall<T, std::tuple<TemplateArgs...>, std::tuple<Next, Context...>, enable_if_t<
+   !IsTemplatedFunctionOperatorAvailable<T, TemplateArgs...>::value>>
+      : TemplatedContextCall<T, std::tuple<TemplateArgs..., Next>, std::tuple<Context...>> { };
 
-template <typename Signature, typename...Context> struct ContextCallImplVariadic;
-template <typename F, typename...Context>
-struct ContextCallImpl<F, std::tuple<Context...>, enable_if_t<IsVariadicFunctionObject<F>::value>>
-: ContextCallImplVariadic<VariadicObjectSignature<F, Context...>, Context...> { };
+template <typename T, typename...TemplateArgs, typename...Context>
+struct TemplatedContextCall<T, std::tuple<TemplateArgs...>, std::tuple<Context...>, enable_if_t<
+   IsTemplatedFunctionOperatorAvailable<T, TemplateArgs...>::value &&
+   !IsTemplatedFunctionOperatorAvailable<T, TemplateArgs..., TemplateArgs..., Context...>::value>>
+      : ContextCallFacade<TypeOf<TemplatedFunctionOperator<T, TemplateArgs...>>, TemplateArgs..., Context...> { };
 
+template <typename T, typename...Context>
+struct VariadicContextCall;
+
+template <typename T, typename...TemplateArgs, typename...Context>
+struct TemplatedContextCall<T, std::tuple<TemplateArgs...>, std::tuple<Context...>, enable_if_t<
+   IsTemplatedFunctionOperatorAvailable<T, TemplateArgs...>::value &&
+   IsTemplatedFunctionOperatorAvailable<T, TemplateArgs..., TemplateArgs..., Context...>::value>>
+      : VariadicContextCall<TemplatedFunctionOperator<T, TemplateArgs..., TemplateArgs..., Context...>, TemplateArgs..., Context...> { };
+
+template <typename T, typename...Context>
+struct VariadicContextCall : VariadicContextCall<SplitSignatureType<T, sizeof...(Context)>, Context...> { };
+
+// Variadic call
 template <typename R, typename...Args, typename...Context>
-struct ContextCallImplVariadic<R(Args...), Context...>
-: std::enable_if<true>
+struct VariadicContextCall<R(Args...), Context...> : std::enable_if<true>
 {
    template <typename F>
    R operator()(F&& f, Context&&...context) const
